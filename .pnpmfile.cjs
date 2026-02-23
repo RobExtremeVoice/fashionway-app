@@ -1,0 +1,1 @@
+// Permite build scripts necessários

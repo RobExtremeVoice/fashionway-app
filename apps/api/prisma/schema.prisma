@@ -1,0 +1,672 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis]
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  LOJA
+  FABRICA
+  INTERMEDIARIO
+  MOTOBOY
+  TRANSPORTADORA
+}
+
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum ColetaStatus {
+  NOVA
+  PENDENTE
+  ACEITA
+  EM_ROTA_COLETA
+  COLETADO
+  EM_TRANSITO
+  ENTREGUE
+  CANCELADA
+  DISPUTA
+}
+
+enum ServiceTier {
+  URGENTE
+  PADRAO
+  AGENDADO
+}
+
+enum PaymentMethod {
+  PIX
+  CARTAO
+  BOLETO
+  FATURADO
+}
+
+enum PaymentStatus {
+  PENDENTE
+  PROCESSANDO
+  CONFIRMADO
+  FALHOU
+  REEMBOLSADO
+  EXPIRADO
+}
+
+enum PayoutStatus {
+  PENDENTE
+  PROCESSANDO
+  PAGO
+  FALHOU
+}
+
+enum AddressType {
+  COLETA
+  ENTREGA
+  AMBOS
+}
+
+enum CompanyType {
+  LOJA
+  FABRICA
+  TRANSPORTADORA
+  INTERMEDIARIO
+}
+
+enum DocumentStatus {
+  PENDENTE
+  APROVADO
+  REJEITADO
+}
+
+enum ShipmentStatus {
+  AGUARDANDO_COLETA
+  COLETADO
+  EM_TRANSITO
+  ENTREGUE
+  DEVOLVIDO
+}
+
+enum NotificationType {
+  NOVA_COLETA
+  COLETA_ACEITA
+  MOTOBOY_A_CAMINHO
+  COLETADO
+  EM_TRANSITO
+  ENTREGUE
+  PAGAMENTO_CONFIRMADO
+  PAYOUT_PROCESSADO
+  DISPUTA_ABERTA
+  SISTEMA
+}
+
+enum DisputaStatus {
+  ABERTA
+  EM_ANALISE
+  RESOLVIDA_FAVOR_CLIENTE
+  RESOLVIDA_FAVOR_MOTOBOY
+  ENCERRADA
+}
+
+enum FaturadoAprovacaoStatus {
+  PENDENTE
+  APROVADO
+  REJEITADO
+}
+
+// ─────────────────────────────────────────────
+// USER & AUTH
+// ─────────────────────────────────────────────
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  phone        String     @unique
+  passwordHash String
+  role         Role
+  status       UserStatus @default(PENDING_VERIFICATION)
+  profilePhoto String?
+
+  stripeCustomerId    String? @unique
+  stripeAccountId     String? @unique
+  stripeAccountStatus String?
+
+  fcmToken String?
+
+  lojaProfile           LojaProfile?
+  motoboyProfile        MotoboyProfile?
+  intermediarioProfile  IntermediarioProfile?
+  transportadoraProfile TransportadoraProfile?
+
+  addresses     Address[]
+  refreshTokens RefreshToken[]
+
+  twoFactorSecret  String?
+  twoFactorEnabled Boolean @default(false)
+
+  coletasComoLoja          Coleta[] @relation("ColetaLoja")
+  coletasComoIntermediario Coleta[] @relation("ColetaIntermediario")
+  coletasComoMotoboy       Coleta[] @relation("ColetaMotoboy")
+
+  payments      Payment[]
+  payouts       Payout[]
+  notifications Notification[]
+
+  reviewsDados    Review[] @relation("ReviewAvaliador")
+  reviewsRecebidos Review[] @relation("ReviewAvaliado")
+
+  lgpdConsentAt   DateTime?
+  lgpdConsentIp   String?
+  dataDeletedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role, status])
+  @@index([email])
+  @@index([phone])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────
+// PERFIS
+// ─────────────────────────────────────────────
+
+model LojaProfile {
+  id          String      @id @default(cuid())
+  userId      String      @unique
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nomeEmpresa String
+  cnpj        String?     @unique
+  companyType CompanyType @default(LOJA)
+  website     String?
+  descricao   String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model MotoboyProfile {
+  id              String  @id @default(cuid())
+  userId          String  @unique
+  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nomeCompleto    String
+  cpf             String  @unique
+  dataNascimento  DateTime
+  tipoVeiculo     String
+  placaVeiculo    String?
+  modeloVeiculo   String?
+  anoVeiculo      Int?
+  cidadeAtuacao   String
+  estadoAtuacao   String
+  ratingMedia     Float   @default(0)
+  totalColetas    Int     @default(0)
+  onlineStatus    Boolean @default(false)
+  lastLocationLat Float?
+  lastLocationLng Float?
+  lastLocationAt  DateTime?
+
+  documents    MotoboyDocument[]
+  vipRelations VipMotoboy[]
+  priceTables  PriceTable[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MotoboyDocument {
+  id              String         @id @default(cuid())
+  motoboyId       String
+  motoboy         MotoboyProfile @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+  type            String
+  url             String
+  status          DocumentStatus @default(PENDENTE)
+  reviewedAt      DateTime?
+  reviewedBy      String?
+  rejectionReason String?
+  createdAt       DateTime       @default(now())
+
+  @@index([motoboyId])
+}
+
+model IntermediarioProfile {
+  id           String  @id @default(cuid())
+  userId       String  @unique
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nomeEmpresa  String
+  cnpj         String? @unique
+
+  faturadoConfig FaturadoConfig?
+  vipMotoboys    VipMotoboy[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TransportadoraProfile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nomeEmpresa  String
+  cnpj         String?  @unique
+  descricao    String?
+  modalidades  String[]
+
+  cidadesAtendidas CidadeAtendida[]
+  priceTables      PriceTable[]
+  shipments        BulkShipment[]
+  faturadoConfig   FaturadoConfig?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// ENDEREÇOS
+// ─────────────────────────────────────────────
+
+model Address {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label       String?
+  type        AddressType @default(AMBOS)
+
+  cep         String
+  logradouro  String
+  numero      String
+  complemento String?
+  bairro      String
+  cidade      String
+  estado      String
+  pais        String      @default("BR")
+
+  lat Float
+  lng Float
+
+  pessoaContato   String?
+  telefoneContato String?
+  companyType     CompanyType?
+
+  isDefault Boolean @default(false)
+
+  coletasOrigem  Coleta[] @relation("ColetaOrigem")
+  coletasDestino Coleta[] @relation("ColetaDestino")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([cep])
+  @@index([cidade, estado])
+}
+
+// ─────────────────────────────────────────────
+// COLETA
+// ─────────────────────────────────────────────
+
+model Coleta {
+  id           String @id @default(cuid())
+  trackingCode String @unique
+
+  lojaId          String?
+  loja            User?   @relation("ColetaLoja", fields: [lojaId], references: [id])
+  intermediarioId String?
+  intermediario   User?   @relation("ColetaIntermediario", fields: [intermediarioId], references: [id])
+  motoboyId       String?
+  motoboy         User?   @relation("ColetaMotoboy", fields: [motoboyId], references: [id])
+  vipMotoboyId    String?
+
+  originAddressId      String
+  originAddress        Address @relation("ColetaOrigem", fields: [originAddressId], references: [id])
+  destinationAddressId String
+  destinationAddress   Address @relation("ColetaDestino", fields: [destinationAddressId], references: [id])
+
+  serviceTier  ServiceTier
+  scheduledAt  DateTime?
+
+  status        ColetaStatus          @default(NOVA)
+  statusHistory ColetaStatusHistory[]
+
+  valorFrete     Int
+  valorRepasse   Int
+  taxaPlataforma Int
+  distanciaKm    Float
+
+  pickupPhotoUrl   String?
+  deliveryPhotoUrl String?
+  signatureUrl     String?
+
+  payment       Payment?
+  paymentMethod PaymentMethod?
+
+  review  Review?
+  disputa Disputa?
+
+  bulkShipmentId String?
+  bulkShipment   BulkShipment? @relation(fields: [bulkShipmentId], references: [id])
+
+  notasInternas String?
+
+  acceptedAt    DateTime?
+  pickedUpAt    DateTime?
+  deliveredAt   DateTime?
+  cancelledAt   DateTime?
+  cancelledReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([lojaId])
+  @@index([intermediarioId])
+  @@index([motoboyId])
+  @@index([status])
+  @@index([trackingCode])
+  @@index([createdAt])
+}
+
+model ColetaStatusHistory {
+  id        String       @id @default(cuid())
+  coletaId  String
+  coleta    Coleta       @relation(fields: [coletaId], references: [id], onDelete: Cascade)
+  status    ColetaStatus
+  changedBy String?
+  note      String?
+  createdAt DateTime     @default(now())
+
+  @@index([coletaId])
+}
+
+// ─────────────────────────────────────────────
+// PAGAMENTOS
+// ─────────────────────────────────────────────
+
+model Payment {
+  id       String @id @default(cuid())
+  coletaId String @unique
+  coleta   Coleta @relation(fields: [coletaId], references: [id])
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
+
+  stripePaymentIntentId String @unique
+  stripeClientSecret    String?
+  stripeChargeId        String?
+
+  pixQrCode    String?
+  pixCopyPaste String?
+  pixExpiresAt DateTime?
+
+  boletoUrl       String?
+  boletoPdfUrl    String?
+  boletoExpiresAt DateTime?
+
+  amount   Int
+  currency String        @default("brl")
+  method   PaymentMethod
+  status   PaymentStatus @default(PENDENTE)
+
+  payout Payout?
+
+  paidAt       DateTime?
+  refundedAt   DateTime?
+  refundReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Payout {
+  id        String  @id @default(cuid())
+  paymentId String  @unique
+  payment   Payment @relation(fields: [paymentId], references: [id])
+  userId    String
+  user      User    @relation(fields: [userId], references: [id])
+
+  stripeTransferId String? @unique
+  stripePayoutId   String?
+
+  amount       Int
+  status       PayoutStatus @default(PENDENTE)
+  processedAt  DateTime?
+  failureReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────
+// TABELA DE PREÇOS
+// ─────────────────────────────────────────────
+
+model PriceTable {
+  id               String  @id @default(cuid())
+  motoboyId        String?
+  motoboy          MotoboyProfile?       @relation(fields: [motoboyId], references: [id])
+  transportadoraId String?
+  transportadora   TransportadoraProfile? @relation(fields: [transportadoraId], references: [id])
+
+  serviceTier  ServiceTier?
+  minKm        Float        @default(0)
+  maxKm        Float        @default(9999)
+  minPesoKg    Float?
+  maxPesoKg    Float?
+  minVolumeM3  Float?
+  maxVolumeM3  Float?
+
+  precoBase  Int
+  precoPerKm Int
+  precoPerKg Int?
+  precoPerM3 Int?
+
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([motoboyId])
+  @@index([transportadoraId])
+}
+
+// ─────────────────────────────────────────────
+// VIP MOTOBOY
+// ─────────────────────────────────────────────
+
+model VipMotoboy {
+  id              String               @id @default(cuid())
+  intermediarioId String
+  intermediario   IntermediarioProfile @relation(fields: [intermediarioId], references: [id], onDelete: Cascade)
+  motoboyId       String
+  motoboy         MotoboyProfile       @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+  apelido         String?
+  prioridade      Int                  @default(0)
+  createdAt       DateTime             @default(now())
+
+  @@unique([intermediarioId, motoboyId])
+  @@index([intermediarioId])
+}
+
+// ─────────────────────────────────────────────
+// FATURADO
+// ─────────────────────────────────────────────
+
+model FaturadoConfig {
+  id               String @id @default(cuid())
+  intermediarioId  String? @unique
+  intermediario    IntermediarioProfile?  @relation(fields: [intermediarioId], references: [id])
+  transportadoraId String? @unique
+  transportadora   TransportadoraProfile? @relation(fields: [transportadoraId], references: [id])
+
+  limiteCredito        Int
+  saldoUtilizado       Int     @default(0)
+  aprovacaoObrigatoria Boolean @default(true)
+  limiteAprovacaoAuto  Int?
+
+  aprovacoes FaturadoAprovacao[]
+
+  ativo     Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FaturadoAprovacao {
+  id              String                  @id @default(cuid())
+  configId        String
+  config          FaturadoConfig          @relation(fields: [configId], references: [id])
+  coletaId        String?
+  valorSolicitado Int
+  status          FaturadoAprovacaoStatus @default(PENDENTE)
+  aprovadoPor     String?
+  aprovadoAt      DateTime?
+  motivoRejeicao  String?
+  createdAt       DateTime                @default(now())
+
+  @@index([configId])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────
+// TRANSPORTADORA
+// ─────────────────────────────────────────────
+
+model CidadeAtendida {
+  id               String                @id @default(cuid())
+  transportadoraId String
+  transportadora   TransportadoraProfile @relation(fields: [transportadoraId], references: [id], onDelete: Cascade)
+  cidade           String
+  estado           String
+  prazoEntregaDias Int                   @default(1)
+  ativo            Boolean               @default(true)
+  createdAt        DateTime              @default(now())
+
+  @@unique([transportadoraId, cidade, estado])
+  @@index([transportadoraId])
+}
+
+model BulkShipment {
+  id               String                @id @default(cuid())
+  transportadoraId String
+  transportadora   TransportadoraProfile @relation(fields: [transportadoraId], references: [id])
+  assignedBy       String
+  assignedAt       DateTime              @default(now())
+
+  coletas       Coleta[]
+  totalVolume   Float?
+  totalPeso     Float?
+  cidadeDestino String
+  estadoDestino String
+
+  status          ShipmentStatus @default(AGUARDANDO_COLETA)
+  podUrl          String?
+  previsaoEntrega DateTime?
+  entregueAt      DateTime?
+  notasAdmin      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([transportadoraId])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────
+// REVIEWS
+// ─────────────────────────────────────────────
+
+model Review {
+  id          String   @id @default(cuid())
+  coletaId    String   @unique
+  coleta      Coleta   @relation(fields: [coletaId], references: [id])
+  avaliadorId String
+  avaliador   User     @relation("ReviewAvaliador", fields: [avaliadorId], references: [id])
+  avaliadoId  String
+  avaliado    User     @relation("ReviewAvaliado", fields: [avaliadoId], references: [id])
+  rating      Int
+  comentario  String?
+  createdAt   DateTime @default(now())
+
+  @@index([avaliadoId])
+}
+
+// ─────────────────────────────────────────────
+// DISPUTAS
+// ─────────────────────────────────────────────
+
+model Disputa {
+  id            String        @id @default(cuid())
+  coletaId      String        @unique
+  coleta        Coleta        @relation(fields: [coletaId], references: [id])
+  abertaPor     String
+  motivo        String
+  descricao     String?
+  evidencias    String[]
+  status        DisputaStatus @default(ABERTA)
+  resolvidaPor  String?
+  resolvidaAt   DateTime?
+  resolucaoNota String?
+  stripeDisputaId String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────
+// NOTIFICAÇÕES
+// ─────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  body      String
+  data      Json?
+  read      Boolean          @default(false)
+  readAt    DateTime?
+  sentAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, read])
+  @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────
+// LGPD
+// ─────────────────────────────────────────────
+
+model LgpdRequest {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String
+  status      String   @default("pending")
+  fileUrl     String?
+  requestedAt DateTime @default(now())
+  processedAt DateTime?
+
+  @@index([userId])
+}
