@@ -1,5 +1,5 @@
-import { IsEmail, IsEnum, IsString, MinLength, IsMobilePhone } from 'class-validator'
-import { Role } from '@prisma/client'
+import { IsEmail, IsIn, IsString, MinLength, IsMobilePhone } from 'class-validator'
+import type { Role } from '@fashionway/shared'
 
 export class LoginDto {
   @IsEmail()
@@ -9,6 +9,8 @@ export class LoginDto {
   @MinLength(6)
   password: string
 }
+
+const VALID_ROLES = ['LOJA', 'INTERMEDIARIO', 'MOTOBOY', 'TRANSPORTADORA', 'FABRICA', 'ADMIN']
 
 export class RegisterDto {
   @IsEmail()
@@ -21,7 +23,7 @@ export class RegisterDto {
   @MinLength(6)
   password: string
 
-  @IsEnum(Role)
+  @IsIn(VALID_ROLES)
   role: Role
 
   @IsString()

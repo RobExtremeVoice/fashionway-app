@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Body } from '@nestjs/common'
+import { Controller, Get, Post, Param, Body, Query } from '@nestjs/common'
 import { AddressesService } from './addresses.service'
 import { Public } from '../auth/decorators/public.decorator'
 
@@ -20,6 +20,13 @@ export class AddressesController {
   @Get('cep/:cep')
   lookupCep(@Param('cep') cep: string) {
     return this.addressesService.lookupCep(cep)
+  }
+
+  @Public()
+  @Get('search')
+  searchAddresses(@Query('q') q: string) {
+    if (!q || q.length < 3) return []
+    return this.addressesService.searchAddresses(q)
   }
 
   @Post('geocode')
