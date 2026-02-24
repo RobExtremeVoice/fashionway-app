@@ -1,5 +1,8 @@
 import { useState } from 'react'
-import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native'
+import {
+  View, Text, TouchableOpacity, ScrollView,
+  Alert, ActivityIndicator, StatusBar,
+} from 'react-native'
 import { router } from 'expo-router'
 import { useColetaStore } from '../../store/coleta.store'
 import { formatBRL } from '@fashionway/shared'
@@ -8,10 +11,15 @@ import { api } from '../../services/api'
 const METHODS = [
   {
     id: 'pix',
-    icon: '🟢',
+    icon: '⚡',
     label: 'Pix',
-    desc: 'Pagamento instantâneo, sem taxas',
+    desc: 'Pagamento instantâneo • Sem taxas',
     badge: 'Recomendado',
+    badgeColor: '#059669',
+    badgeBg: '#ECFDF5',
+    color: '#059669',
+    bg: '#ECFDF5',
+    border: '#A7F3D0',
   },
   {
     id: 'card',
@@ -19,25 +27,63 @@ const METHODS = [
     label: 'Cartão',
     desc: 'Crédito ou débito',
     badge: null,
+    color: '#1D4ED8',
+    bg: '#EFF6FF',
+    border: '#BFDBFE',
   },
   {
     id: 'boleto',
     icon: '📄',
     label: 'Boleto',
     desc: 'Confirmação em até 3 dias úteis',
-    badge: '⚠️ Mais lento',
+    badge: 'Mais lento',
+    badgeColor: '#D97706',
+    badgeBg: '#FFFBEB',
+    color: '#D97706',
+    bg: '#FFFBEB',
+    border: '#FDE68A',
   },
-]
+] as const
+
+const STEPS = ['Origem', 'Destino', 'Serviço', 'Pagamento']
+
+function StepBar({ current }: { current: number }) {
+  return (
+    <View style={{ flexDirection: 'row', gap: 0, marginBottom: 24, alignItems: 'center' }}>
+      {STEPS.map((step, i) => (
+        <View key={step} style={{ flex: 1, alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%', marginBottom: 8 }}>
+            {i > 0 && <View style={{ flex: 1, height: 2, backgroundColor: i <= current ? '#1D4ED8' : '#E5E7EB' }} />}
+            <View style={{
+              width: 28, height: 28, borderRadius: 14,
+              backgroundColor: i <= current ? '#1D4ED8' : '#E5E7EB',
+              alignItems: 'center', justifyContent: 'center',
+              borderWidth: i === current ? 3 : 0, borderColor: '#93C5FD',
+            }}>
+              <Text style={{ color: i <= current ? '#fff' : '#9CA3AF', fontSize: 11, fontWeight: '700' }}>
+                {i < current ? '✓' : String(i + 1)}
+              </Text>
+            </View>
+            {i < STEPS.length - 1 && <View style={{ flex: 1, height: 2, backgroundColor: i < current ? '#1D4ED8' : '#E5E7EB' }} />}
+          </View>
+          <Text style={{ fontSize: 10, fontWeight: '600', color: i <= current ? '#1D4ED8' : '#9CA3AF', textAlign: 'center' }}>
+            {step}
+          </Text>
+        </View>
+      ))}
+    </View>
+  )
+}
 
 export default function ColetaPagamentoScreen() {
-  const [loading, setLoading]     = useState(false)
-  const [method, setMethod]       = useState<'pix' | 'card' | 'boleto'>('pix')
+  const [loading, setLoading] = useState(false)
+  const [method, setMethod]   = useState<'pix' | 'card' | 'boleto'>('pix')
 
-  const quotes            = useColetaStore((s) => s.quotes)
-  const selectedTier      = useColetaStore((s) => s.selectedTier)
-  const originAddress     = useColetaStore((s) => s.originAddress)
+  const quotes             = useColetaStore((s) => s.quotes)
+  const selectedTier       = useColetaStore((s) => s.selectedTier)
+  const originAddress      = useColetaStore((s) => s.originAddress)
   const destinationAddress = useColetaStore((s) => s.destinationAddress)
-  const createColeta      = useColetaStore((s) => s.createColeta)
+  const createColeta       = useColetaStore((s) => s.createColeta)
 
   const quote = quotes.find((q) => q.serviceTier === selectedTier)
 
@@ -53,7 +99,6 @@ export default function ColetaPagamentoScreen() {
         paymentMethod: method === 'pix' ? 'PIX' : method === 'card' ? 'CARTAO' : 'BOLETO',
       })
 
-      // Cria payment intent no Stripe
       const { data: payment } = await api.post('/payments', {
         coletaId: coleta.id,
         method,
@@ -68,132 +113,204 @@ export default function ColetaPagamentoScreen() {
             paymentIntentId: payment.stripePaymentIntentId,
           },
         })
-      } else if (method === 'boleto') {
-        router.replace({
-          pathname: '/coleta/confirmacao',
-          params: { coletaId: coleta.id, trackingCode: coleta.trackingCode },
-        })
       } else {
-        // Cartão → tela de cartão
         router.replace({
           pathname: '/coleta/confirmacao',
           params: { coletaId: coleta.id, trackingCode: coleta.trackingCode },
         })
       }
     } catch (err: any) {
-      const msg = err?.response?.data?.message ?? 'Erro ao processar pagamento'
-      Alert.alert('Erro', msg)
+      Alert.alert('Erro', err?.response?.data?.message ?? 'Erro ao processar pagamento')
     } finally {
       setLoading(false)
     }
   }
 
+  const selectedMethod = METHODS.find((m) => m.id === method)!
+
   return (
-    <ScrollView className="flex-1 bg-white">
-      {/* Header */}
-      <View className="bg-blue-700 px-5 pt-14 pb-6">
-        <TouchableOpacity onPress={() => router.back()} className="mb-3">
-          <Text className="text-blue-200">← Voltar</Text>
+    <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#1D4ED8" />
+
+      {/* ── HEADER ── */}
+      <View style={{
+        backgroundColor: '#1D4ED8',
+        paddingTop: 56, paddingBottom: 28, paddingHorizontal: 24,
+        borderBottomLeftRadius: 28, borderBottomRightRadius: 28,
+      }}>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: 16 }}>
+          <Text style={{ color: '#93C5FD', fontSize: 15, fontWeight: '600' }}>← Voltar</Text>
         </TouchableOpacity>
-        <Text className="text-white text-2xl font-bold">Pagamento</Text>
-        <Text className="text-blue-200 text-sm">Escolha a forma de pagamento</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+          <View style={{
+            width: 48, height: 48, backgroundColor: 'rgba(255,255,255,0.2)',
+            borderRadius: 16, alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Text style={{ fontSize: 24 }}>💳</Text>
+          </View>
+          <View>
+            <Text style={{ color: '#fff', fontSize: 22, fontWeight: '800' }}>Pagamento</Text>
+            <Text style={{ color: '#93C5FD', fontSize: 13, marginTop: 2 }}>
+              Escolha a forma de pagamento
+            </Text>
+          </View>
+        </View>
       </View>
 
-      <View className="px-5 pt-5">
-        {/* Progresso */}
-        <View className="flex-row gap-2 mb-6">
-          {['Origem', 'Destino', 'Serviço', 'Pagamento'].map((step, i) => (
-            <View key={step} className="flex-1 items-center">
-              <View className="h-1.5 rounded-full w-full bg-blue-700" />
-              <Text className="text-[10px] mt-1 text-blue-700 font-medium">{step}</Text>
-            </View>
-          ))}
-        </View>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <StepBar current={3} />
 
-        {/* Resumo do pedido */}
+        {/* Order summary */}
         {quote && (
-          <View className="bg-blue-50 rounded-2xl p-4 mb-5">
-            <Text className="font-bold text-blue-800 text-base mb-2">Resumo</Text>
-            <View className="flex-row justify-between mb-1">
-              <Text className="text-gray-600">Serviço</Text>
-              <Text className="font-medium">{quote.label}</Text>
+          <View style={{
+            backgroundColor: '#fff', borderRadius: 20, padding: 20, marginBottom: 20,
+            shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
+          }}>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#6B7280', letterSpacing: 0.5, marginBottom: 14, textTransform: 'uppercase' }}>
+              Resumo do Pedido
+            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Text style={{ color: '#6B7280', fontSize: 14 }}>Serviço</Text>
+              <Text style={{ color: '#111827', fontSize: 14, fontWeight: '600' }}>{quote.label}</Text>
             </View>
-            <View className="flex-row justify-between mb-1">
-              <Text className="text-gray-600">Distância</Text>
-              <Text className="font-medium">{quote.distanciaKm.toFixed(1)} km</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Text style={{ color: '#6B7280', fontSize: 14 }}>Distância</Text>
+              <Text style={{ color: '#111827', fontSize: 14, fontWeight: '600' }}>{quote.distanciaKm.toFixed(1)} km</Text>
             </View>
-            <View className="h-px bg-blue-100 my-2" />
-            <View className="flex-row justify-between">
-              <Text className="font-bold text-blue-800 text-base">Total</Text>
-              <Text className="font-bold text-blue-800 text-xl">{formatBRL(quote.valorFrete)}</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Text style={{ color: '#6B7280', fontSize: 14 }}>ETA</Text>
+              <Text style={{ color: '#111827', fontSize: 14, fontWeight: '600' }}>~{quote.etaMinutes} min</Text>
+            </View>
+            <View style={{ height: 1, backgroundColor: '#F3F4F6', marginVertical: 12 }} />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ color: '#111827', fontSize: 16, fontWeight: '700' }}>Total</Text>
+              <Text style={{ color: '#1D4ED8', fontSize: 24, fontWeight: '800' }}>
+                {formatBRL(quote.valorFrete)}
+              </Text>
             </View>
           </View>
         )}
 
-        {/* Métodos de pagamento */}
-        <Text className="font-semibold text-gray-800 mb-3">Forma de pagamento</Text>
+        {/* Payment methods */}
+        <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 14 }}>
+          Forma de pagamento
+        </Text>
 
-        {METHODS.map((m) => (
-          <TouchableOpacity
-            key={m.id}
-            onPress={() => setMethod(m.id as any)}
-            className={`border-2 rounded-2xl p-4 mb-3 flex-row items-center gap-3 ${
-              method === m.id ? 'border-blue-700 bg-blue-50' : 'border-gray-100 bg-gray-50'
-            }`}
-          >
-            <Text className="text-3xl">{m.icon}</Text>
-            <View className="flex-1">
-              <View className="flex-row items-center gap-2">
-                <Text className={`font-bold text-base ${method === m.id ? 'text-blue-700' : 'text-gray-800'}`}>
-                  {m.label}
-                </Text>
-                {m.badge && (
-                  <View className="bg-green-100 px-2 py-0.5 rounded-full">
-                    <Text className="text-green-700 text-[10px] font-medium">{m.badge}</Text>
-                  </View>
+        {METHODS.map((m) => {
+          const isSelected = method === m.id
+          return (
+            <TouchableOpacity
+              key={m.id}
+              onPress={() => setMethod(m.id)}
+              style={{
+                flexDirection: 'row', alignItems: 'center',
+                backgroundColor: isSelected ? m.bg : '#fff',
+                borderRadius: 18, padding: 18, marginBottom: 10,
+                borderWidth: 2, borderColor: isSelected ? m.border : '#F3F4F6',
+                shadowColor: isSelected ? m.color : '#000',
+                shadowOffset: { width: 0, height: isSelected ? 4 : 1 },
+                shadowOpacity: isSelected ? 0.2 : 0.04,
+                shadowRadius: isSelected ? 8 : 4, elevation: isSelected ? 4 : 1,
+              }}
+            >
+              <View style={{
+                width: 46, height: 46,
+                backgroundColor: isSelected ? m.color : '#F9FAFB',
+                borderRadius: 14, alignItems: 'center', justifyContent: 'center',
+                marginRight: 14,
+              }}>
+                <Text style={{ fontSize: 22 }}>{m.icon}</Text>
+              </View>
+
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{
+                    fontSize: 16, fontWeight: '700',
+                    color: isSelected ? m.color : '#111827',
+                  }}>
+                    {m.label}
+                  </Text>
+                  {m.badge && (
+                    <View style={{
+                      backgroundColor: (m as any).badgeBg ?? m.bg,
+                      borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3,
+                    }}>
+                      <Text style={{
+                        fontSize: 10, fontWeight: '700',
+                        color: (m as any).badgeColor ?? m.color,
+                      }}>
+                        {m.badge}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 3 }}>{m.desc}</Text>
+              </View>
+
+              {/* Radio button */}
+              <View style={{
+                width: 22, height: 22, borderRadius: 11,
+                borderWidth: 2, borderColor: isSelected ? m.color : '#D1D5DB',
+                alignItems: 'center', justifyContent: 'center',
+              }}>
+                {isSelected && (
+                  <View style={{
+                    width: 10, height: 10, borderRadius: 5,
+                    backgroundColor: m.color,
+                  }} />
                 )}
               </View>
-              <Text className="text-gray-500 text-sm">{m.desc}</Text>
-            </View>
-            <View className={`w-5 h-5 rounded-full border-2 items-center justify-center ${
-              method === m.id ? 'border-blue-700 bg-blue-700' : 'border-gray-300'
-            }`}>
-              {method === m.id && <View className="w-2 h-2 rounded-full bg-white" />}
-            </View>
-          </TouchableOpacity>
-        ))}
+            </TouchableOpacity>
+          )
+        })}
 
-        {/* Aviso boleto */}
+        {/* Boleto warning */}
         {method === 'boleto' && (
-          <View className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex-row gap-2">
-            <Text>⚠️</Text>
-            <Text className="text-amber-700 text-sm flex-1">
-              Sua coleta será confirmada após a compensação bancária do boleto (até 3 dias úteis).
+          <View style={{
+            backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FDE68A',
+            borderRadius: 14, padding: 14, marginTop: 4, marginBottom: 8,
+            flexDirection: 'row', gap: 10,
+          }}>
+            <Text style={{ fontSize: 18 }}>⚠️</Text>
+            <Text style={{ color: '#92400E', fontSize: 13, flex: 1, lineHeight: 20 }}>
+              Sua coleta será confirmada somente após a compensação do boleto (até 3 dias úteis).
             </Text>
           </View>
         )}
 
-        {/* Nota Stripe */}
-        <View className="flex-row items-center justify-center gap-2 mb-4">
-          <Text className="text-gray-400 text-xs">🔒 Pagamento protegido por</Text>
-          <Text className="text-gray-500 text-xs font-bold">Stripe</Text>
+        {/* Security badge */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 16, marginBottom: 20 }}>
+          <Text style={{ color: '#9CA3AF', fontSize: 12 }}>🔒</Text>
+          <Text style={{ color: '#9CA3AF', fontSize: 12 }}>Pagamentos protegidos por</Text>
+          <Text style={{ color: '#6366F1', fontSize: 12, fontWeight: '700' }}>Stripe</Text>
         </View>
 
-        {/* Botão solicitar */}
+        {/* CTA */}
         <TouchableOpacity
-          className="bg-blue-700 rounded-xl py-4 items-center mb-10"
-          onPress={handleSolicitar}
-          disabled={loading}
+          onPress={handleSolicitar} disabled={loading}
+          style={{
+            backgroundColor: loading ? '#93C5FD' : '#1D4ED8',
+            borderRadius: 16, paddingVertical: 17, alignItems: 'center',
+            shadowColor: '#1D4ED8', shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.35, shadowRadius: 14, elevation: 8,
+          }}
         >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text className="text-white font-semibold text-base">
-              {quote ? `Pagar ${formatBRL(quote.valorFrete)} e Solicitar` : 'Solicitar Coleta'}
-            </Text>
-          )}
+          {loading
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 }}>
+                {quote
+                  ? `Pagar ${formatBRL(quote.valorFrete)} e Solicitar 🚀`
+                  : 'Solicitar Coleta 🚀'
+                }
+              </Text>
+          }
         </TouchableOpacity>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   )
 }

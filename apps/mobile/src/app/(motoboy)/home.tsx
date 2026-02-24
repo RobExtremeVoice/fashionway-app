@@ -1,21 +1,30 @@
 import { useState, useEffect } from 'react'
-import { View, Text, TouchableOpacity, Switch, ScrollView, Alert } from 'react-native'
+import {
+  View, Text, TouchableOpacity, Switch,
+  ScrollView, Alert, StatusBar, RefreshControl,
+} from 'react-native'
 import { router } from 'expo-router'
 import { useAuthStore } from '../../store/auth.store'
 import { useColetaStore } from '../../store/coleta.store'
 import { formatBRL } from '@fashionway/shared'
 import { api } from '../../services/api'
 
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  ACEITA:         { label: 'Aceita',      color: '#059669', bg: '#ECFDF5' },
+  EM_ROTA_COLETA: { label: 'A caminho',   color: '#7C3AED', bg: '#F5F3FF' },
+  COLETADO:       { label: 'Coletado',    color: '#0891B2', bg: '#ECFEFF' },
+  EM_TRANSITO:    { label: 'Em trânsito', color: '#EA580C', bg: '#FFF7ED' },
+  ENTREGUE:       { label: 'Entregue',    color: '#16A34A', bg: '#F0FDF4' },
+}
+
 export default function MotoboyHomeScreen() {
-  const user        = useAuthStore((s) => s.user)
-  const coletas     = useColetaStore((s) => s.activeColetas)
-  const fetchActive = useColetaStore((s) => s.fetchActiveColetas)
+  const { user, logout }    = useAuthStore()
+  const { activeColetas, fetchActiveColetas, isLoading } = useColetaStore()
   const [online, setOnline]     = useState(false)
   const [toggling, setToggling] = useState(false)
 
   useEffect(() => {
-    fetchActive()
-    // Carrega status online do perfil
+    fetchActiveColetas()
     api.get('/motoboys/me').then(({ data }) => {
       setOnline(data.onlineStatus ?? false)
     }).catch(() => {})
@@ -26,7 +35,7 @@ export default function MotoboyHomeScreen() {
     try {
       await api.patch('/motoboys/status', { online: value })
       setOnline(value)
-      if (value) fetchActive()
+      if (value) fetchActiveColetas()
     } catch {
       Alert.alert('Erro', 'Não foi possível alterar seu status')
     } finally {
@@ -34,149 +43,291 @@ export default function MotoboyHomeScreen() {
     }
   }
 
-  // Coletas disponíveis (NOVA) e as minhas (atribuídas a mim)
-  const disponiveis = coletas.filter((c) => c.status === 'NOVA' && !c.motoboyId)
-  const minhas      = coletas.filter((c) => c.motoboyId === user?.id)
+  const firstName = (user as any)?.motoboyProfile?.nomeCompleto?.split(' ')[0]
+    ?? user?.email?.split('@')[0]
+    ?? 'Motoboy'
+
+  const disponiveis = activeColetas.filter((c) => c.status === 'NOVA' && !(c as any).motoboyId)
+  const minhas      = activeColetas.filter((c) => (c as any).motoboyId === user?.id)
+
+  const headerBg = online ? '#059669' : '#1F2937'
 
   return (
-    <ScrollView className="flex-1 bg-gray-50" showsVerticalScrollIndicator={false}>
-      {/* Header */}
-      <View className={`px-5 pt-14 pb-6 ${online ? 'bg-green-600' : 'bg-gray-700'}`}>
-        <Text className="text-white text-sm opacity-80">Olá, {user?.motoboyProfile?.nomeCompleto?.split(' ')[0]} 👋</Text>
-        <Text className="text-white text-2xl font-bold mt-1">FashionWay Motoboy</Text>
+    <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+      <StatusBar barStyle="light-content" backgroundColor={headerBg} />
 
-        {/* Toggle online/offline */}
-        <View className="flex-row items-center justify-between mt-4 bg-black/10 rounded-2xl px-4 py-3">
+      {/* ── HEADER ── */}
+      <View style={{
+        backgroundColor: headerBg,
+        paddingTop: 56, paddingBottom: 28, paddingHorizontal: 24,
+        borderBottomLeftRadius: 28, borderBottomRightRadius: 28,
+      }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <View>
-            <Text className="text-white font-bold text-base">
-              {online ? '🟢 Online — Aceitando corridas' : '⚫ Offline'}
+            <Text style={{ color: online ? '#A7F3D0' : '#9CA3AF', fontSize: 13 }}>
+              {online ? '🟢 Online agora' : '⚫ Você está offline'}
             </Text>
-            <Text className="text-white/70 text-xs mt-0.5">
-              {online ? 'Você aparece para clientes' : 'Ative para receber corridas'}
+            <Text style={{ color: '#fff', fontSize: 22, fontWeight: '800', marginTop: 2 }}>
+              Olá, {firstName} 👋
+            </Text>
+          </View>
+          <TouchableOpacity onPress={logout} style={{
+            backgroundColor: 'rgba(255,255,255,0.15)',
+            borderRadius: 12, padding: 10,
+          }}>
+            <Text style={{ fontSize: 20 }}>🚪</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Online toggle card */}
+        <View style={{
+          flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+          backgroundColor: 'rgba(255,255,255,0.12)',
+          borderRadius: 18, padding: 16, marginTop: 20,
+        }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800' }}>
+              {online ? 'Aceitando corridas' : 'Ativar para receber corridas'}
+            </Text>
+            <Text style={{ color: online ? '#A7F3D0' : '#9CA3AF', fontSize: 12, marginTop: 3 }}>
+              {online
+                ? `${disponiveis.length} coleta${disponiveis.length !== 1 ? 's' : ''} disponível na sua região`
+                : 'Você está invisível para clientes agora'}
             </Text>
           </View>
           <Switch
             value={online}
             onValueChange={toggleOnline}
             disabled={toggling}
-            trackColor={{ false: '#374151', true: '#10B981' }}
+            trackColor={{ false: '#374151', true: '#34D399' }}
             thumbColor="#fff"
+            style={{ transform: [{ scaleX: 1.2 }, { scaleY: 1.2 }] }}
           />
         </View>
-      </View>
 
-      <View className="px-5 pt-4">
-        {/* Stats do dia */}
-        <View className="flex-row gap-3 mb-5">
+        {/* Stats bar */}
+        <View style={{
+          flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.1)',
+          borderRadius: 16, padding: 16, marginTop: 14, gap: 0,
+        }}>
           {[
-            { label: 'Hoje', value: '3 corridas', icon: '🏍️' },
-            { label: 'Ganhos', value: formatBRL(18900), icon: '💰' },
-          ].map((stat) => (
-            <View key={stat.label} className="flex-1 bg-white rounded-2xl p-4 shadow-sm">
-              <Text className="text-2xl mb-1">{stat.icon}</Text>
-              <Text className="text-gray-400 text-xs">{stat.label}</Text>
-              <Text className="font-bold text-gray-800 text-base">{stat.value}</Text>
+            { val: minhas.length.toString(), lbl: 'Em andamento' },
+            { val: '3',                      lbl: 'Hoje' },
+            { val: formatBRL(18900),          lbl: 'Ganhos hoje' },
+          ].map((s, i) => (
+            <View key={i} style={{
+              flex: 1, alignItems: 'center',
+              borderRightWidth: i < 2 ? 1 : 0,
+              borderRightColor: 'rgba(255,255,255,0.2)',
+            }}>
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800' }}>{s.val}</Text>
+              <Text style={{ color: online ? '#A7F3D0' : '#9CA3AF', fontSize: 11, marginTop: 2 }}>{s.lbl}</Text>
             </View>
           ))}
         </View>
+      </View>
 
-        {/* Minhas coletas em andamento */}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 32 }}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={fetchActiveColetas} tintColor={headerBg} />
+        }
+      >
+        {/* ── MINHAS COLETAS ── */}
         {minhas.length > 0 && (
-          <>
-            <Text className="font-semibold text-gray-800 text-base mb-3">Em andamento</Text>
-            {minhas.map((c) => (
-              <TouchableOpacity
-                key={c.id}
-                onPress={() => router.push(`/coleta/tracking?id=${c.id}` as any)}
-                className="bg-blue-700 rounded-2xl p-4 mb-3"
-              >
-                <View className="flex-row justify-between">
-                  <Text className="text-white font-bold">{c.trackingCode}</Text>
-                  <Text className="text-blue-200 text-sm">{c.status}</Text>
-                </View>
-                <Text className="text-blue-100 text-sm mt-2" numberOfLines={1}>
-                  📍 {c.originAddress?.logradouro}, {c.originAddress?.numero}
-                </Text>
-                <Text className="text-blue-100 text-sm" numberOfLines={1}>
-                  🏁 {c.destinationAddress?.logradouro}, {c.destinationAddress?.numero}
-                </Text>
-                <Text className="text-white font-bold text-lg mt-2">
-                  {formatBRL(c.valorRepasse ?? 0)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </>
+          <View style={{ paddingHorizontal: 24, marginTop: 24 }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 14 }}>
+              Em andamento
+            </Text>
+            {minhas.map((c) => {
+              const cfg = STATUS_CONFIG[c.status] ?? { label: c.status, color: '#374151', bg: '#F3F4F6' }
+              return (
+                <TouchableOpacity
+                  key={c.id}
+                  onPress={() => router.push(`/coleta/tracking?id=${c.id}` as any)}
+                  style={{
+                    backgroundColor: '#1D4ED8', borderRadius: 20,
+                    padding: 18, marginBottom: 12,
+                    shadowColor: '#1D4ED8', shadowOffset: { width: 0, height: 6 },
+                    shadowOpacity: 0.35, shadowRadius: 12, elevation: 8,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <View>
+                      <Text style={{ color: '#BFDBFE', fontSize: 11, fontWeight: '700', letterSpacing: 0.5 }}>
+                        #{c.trackingCode}
+                      </Text>
+                      <View style={{
+                        backgroundColor: cfg.bg, borderRadius: 8,
+                        paddingHorizontal: 8, paddingVertical: 3, marginTop: 6,
+                        alignSelf: 'flex-start',
+                      }}>
+                        <Text style={{ color: cfg.color, fontSize: 11, fontWeight: '700' }}>{cfg.label}</Text>
+                      </View>
+                    </View>
+                    <Text style={{ color: '#fff', fontSize: 20, fontWeight: '800' }}>
+                      {formatBRL((c as any).valorRepasse ?? 0)}
+                    </Text>
+                  </View>
+
+                  <View style={{ marginTop: 14, gap: 4 }}>
+                    <Text style={{ color: '#BFDBFE', fontSize: 13 }} numberOfLines={1}>
+                      📍 {(c as any).originAddress?.logradouro}, {(c as any).originAddress?.numero}
+                    </Text>
+                    <Text style={{ color: '#93C5FD', fontSize: 13 }} numberOfLines={1}>
+                      🏁 {(c as any).destinationAddress?.logradouro}, {(c as any).destinationAddress?.numero}
+                    </Text>
+                  </View>
+
+                  <View style={{
+                    backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 10,
+                    paddingHorizontal: 14, paddingVertical: 8, marginTop: 14,
+                    alignSelf: 'flex-start',
+                  }}>
+                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>
+                      Ver detalhes →
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )
+            })}
+          </View>
         )}
 
-        {/* Coletas disponíveis */}
+        {/* ── COLETAS DISPONÍVEIS ── */}
         {online && (
-          <>
-            <Text className="font-semibold text-gray-800 text-base mb-3">
-              Disponíveis perto de você ({disponiveis.length})
-            </Text>
+          <View style={{ paddingHorizontal: 24, marginTop: minhas.length > 0 ? 8 : 24 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>
+                Disponíveis perto de você
+              </Text>
+              <View style={{
+                backgroundColor: '#ECFDF5', borderRadius: 20,
+                paddingHorizontal: 10, paddingVertical: 4,
+              }}>
+                <Text style={{ color: '#059669', fontSize: 12, fontWeight: '700' }}>{disponiveis.length}</Text>
+              </View>
+            </View>
 
             {disponiveis.length === 0 ? (
-              <View className="bg-white rounded-2xl p-6 items-center">
-                <Text className="text-3xl mb-2">🔍</Text>
-                <Text className="text-gray-500 text-center">
-                  Aguardando novas coletas na sua região...
+              <View style={{
+                backgroundColor: '#fff', borderRadius: 20, padding: 32,
+                alignItems: 'center',
+                shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
+              }}>
+                <Text style={{ fontSize: 48, marginBottom: 12 }}>🔍</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>
+                  Aguardando novas coletas
+                </Text>
+                <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 6, textAlign: 'center', lineHeight: 20 }}>
+                  Você receberá uma notificação assim que uma coleta aparecer na sua região
                 </Text>
               </View>
             ) : (
               disponiveis.map((c) => (
-                <View key={c.id} className="bg-white rounded-2xl p-4 mb-3 shadow-sm">
-                  <View className="flex-row justify-between mb-2">
-                    <Text className="font-bold text-gray-800">{c.trackingCode}</Text>
-                    <Text className="text-green-600 font-bold text-lg">
-                      {formatBRL(c.valorRepasse ?? 0)}
+                <View key={c.id} style={{
+                  backgroundColor: '#fff', borderRadius: 20, padding: 18, marginBottom: 12,
+                  shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.07, shadowRadius: 8, elevation: 3,
+                }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <View>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#6B7280', letterSpacing: 0.5 }}>
+                        #{c.trackingCode}
+                      </Text>
+                      <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 4 }}>
+                        {(c as any).distanciaKm?.toFixed(1)} km • {(c as any).serviceTier ?? 'PADRÃO'}
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={{ fontSize: 22, fontWeight: '800', color: '#059669' }}>
+                        {formatBRL((c as any).valorRepasse ?? 0)}
+                      </Text>
+                      <Text style={{ fontSize: 11, color: '#6B7280' }}>seu repasse</Text>
+                    </View>
+                  </View>
+
+                  <View style={{
+                    backgroundColor: '#F8FAFC', borderRadius: 12,
+                    padding: 12, marginTop: 12, gap: 6,
+                  }}>
+                    <Text style={{ color: '#374151', fontSize: 13 }} numberOfLines={1}>
+                      📍 {(c as any).originAddress?.logradouro}, {(c as any).originAddress?.numero}
+                    </Text>
+                    <View style={{ width: 1, height: 8, backgroundColor: '#D1D5DB', marginLeft: 8 }} />
+                    <Text style={{ color: '#374151', fontSize: 13 }} numberOfLines={1}>
+                      🏁 {(c as any).destinationAddress?.logradouro}, {(c as any).destinationAddress?.numero}
                     </Text>
                   </View>
-                  <Text className="text-gray-500 text-sm" numberOfLines={1}>
-                    📍 {c.originAddress?.logradouro}, {c.originAddress?.numero}
-                  </Text>
-                  <Text className="text-gray-500 text-sm mt-0.5" numberOfLines={1}>
-                    🏁 {c.destinationAddress?.logradouro}, {c.destinationAddress?.numero}
-                  </Text>
-                  <Text className="text-gray-400 text-xs mt-1">
-                    {c.distanciaKm?.toFixed(1)} km • {c.serviceTier}
-                  </Text>
-                  <View className="flex-row gap-2 mt-3">
-                    <TouchableOpacity className="flex-1 border border-gray-200 rounded-xl py-2.5 items-center">
-                      <Text className="text-gray-500 font-medium">Recusar</Text>
+
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+                    <TouchableOpacity style={{
+                      flex: 1, borderWidth: 1.5, borderColor: '#E5E7EB',
+                      borderRadius: 14, paddingVertical: 12, alignItems: 'center',
+                    }}>
+                      <Text style={{ color: '#6B7280', fontSize: 14, fontWeight: '600' }}>Recusar</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      className="flex-2 flex-1 bg-green-600 rounded-xl py-2.5 items-center"
+                      style={{
+                        flex: 2, backgroundColor: '#059669',
+                        borderRadius: 14, paddingVertical: 12, alignItems: 'center',
+                        shadowColor: '#059669', shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
+                      }}
                       onPress={async () => {
-                        await api.patch(`/coletas/${c.id}/status`, { status: 'ACEITA' })
-                        fetchActive()
+                        try {
+                          await api.patch(`/coletas/${c.id}/status`, { status: 'ACEITA' })
+                          fetchActiveColetas()
+                        } catch {
+                          Alert.alert('Erro', 'Não foi possível aceitar a coleta')
+                        }
                       }}
                     >
-                      <Text className="text-white font-bold">✓ Aceitar</Text>
+                      <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>✓ Aceitar corrida</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
               ))
             )}
-          </>
-        )}
-
-        {!online && (
-          <View className="bg-white rounded-2xl p-8 items-center mt-4">
-            <Text className="text-4xl mb-3">😴</Text>
-            <Text className="text-gray-700 font-medium text-center">
-              Ative seu status para receber coletas
-            </Text>
-            <TouchableOpacity
-              className="bg-green-600 px-8 py-3 rounded-full mt-4"
-              onPress={() => toggleOnline(true)}
-            >
-              <Text className="text-white font-bold">Ficar Online</Text>
-            </TouchableOpacity>
           </View>
         )}
 
-        <View className="h-24" />
-      </View>
-    </ScrollView>
+        {/* ── OFFLINE STATE ── */}
+        {!online && minhas.length === 0 && (
+          <View style={{ paddingHorizontal: 24, marginTop: 32 }}>
+            <View style={{
+              backgroundColor: '#fff', borderRadius: 24, padding: 40,
+              alignItems: 'center',
+              shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.06, shadowRadius: 12, elevation: 2,
+            }}>
+              <Text style={{ fontSize: 64, marginBottom: 16 }}>😴</Text>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: '#111827' }}>
+                Você está offline
+              </Text>
+              <Text style={{ fontSize: 14, color: '#6B7280', marginTop: 8, textAlign: 'center', lineHeight: 22 }}>
+                Ative seu status para começar a receber corridas e ganhar mais
+              </Text>
+              <TouchableOpacity
+                onPress={() => toggleOnline(true)}
+                style={{
+                  backgroundColor: '#059669',
+                  borderRadius: 16, paddingVertical: 14, paddingHorizontal: 36,
+                  marginTop: 24,
+                  shadowColor: '#059669', shadowOffset: { width: 0, height: 6 },
+                  shadowOpacity: 0.35, shadowRadius: 12, elevation: 8,
+                }}
+              >
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
+                  🟢 Ficar Online
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </ScrollView>
+    </View>
   )
 }

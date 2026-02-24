@@ -66,8 +66,9 @@ function Field({ label, value, onChangeText, placeholder, keyboardType, maxLengt
   )
 }
 
-export default function ColetaOrigemScreen() {
-  const setOrigin = useColetaStore((s) => s.setOrigin)
+export default function ColetaDestinoScreen() {
+  const setDestination = useColetaStore((s) => s.setDestination)
+  const fetchQuotes    = useColetaStore((s) => s.fetchQuotes)
 
   const [cep, setCep]                     = useState('')
   const [logradouro, setLogradouro]       = useState('')
@@ -113,14 +114,15 @@ export default function ColetaOrigemScreen() {
         logradouro, numero, bairro, cidade, estado, cep,
       })
 
-      setOrigin({
+      setDestination({
         cep: cep.replace(/\D/g, ''),
         logradouro, numero, complemento,
         bairro, cidade, estado, pessoaContato,
         lat: data.lat, lng: data.lng,
       })
 
-      router.push('/coleta/destino')
+      await fetchQuotes()
+      router.push('/coleta/servico')
     } catch {
       Alert.alert('Erro', 'Não foi possível obter as coordenadas do endereço')
     } finally {
@@ -146,11 +148,11 @@ export default function ColetaOrigemScreen() {
             width: 48, height: 48, backgroundColor: 'rgba(255,255,255,0.2)',
             borderRadius: 16, alignItems: 'center', justifyContent: 'center',
           }}>
-            <Text style={{ fontSize: 24 }}>📍</Text>
+            <Text style={{ fontSize: 24 }}>🏁</Text>
           </View>
           <View>
-            <Text style={{ color: '#fff', fontSize: 22, fontWeight: '800' }}>Local de Coleta</Text>
-            <Text style={{ color: '#93C5FD', fontSize: 13, marginTop: 2 }}>De onde vamos buscar?</Text>
+            <Text style={{ color: '#fff', fontSize: 22, fontWeight: '800' }}>Local de Entrega</Text>
+            <Text style={{ color: '#93C5FD', fontSize: 13, marginTop: 2 }}>Para onde vamos levar?</Text>
           </View>
         </View>
       </View>
@@ -161,7 +163,7 @@ export default function ColetaOrigemScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <StepBar current={0} />
+        <StepBar current={1} />
 
         {/* CEP */}
         <View style={{ marginBottom: 14 }}>
@@ -261,7 +263,7 @@ export default function ColetaOrigemScreen() {
             <Text style={{ fontSize: 17, marginRight: 10 }}>👤</Text>
             <TextInput
               style={{ flex: 1, paddingVertical: 13, fontSize: 15, color: '#111827' }}
-              placeholder="Nome de quem vai entregar ao motoboy"
+              placeholder="Nome de quem vai receber"
               placeholderTextColor="#9CA3AF"
               value={pessoaContato} onChangeText={setPessoaContato}
             />
@@ -281,7 +283,7 @@ export default function ColetaOrigemScreen() {
           {loading
             ? <ActivityIndicator color="#fff" />
             : <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 }}>
-                Continuar → Destino
+                Continuar → Serviço
               </Text>
           }
         </TouchableOpacity>
