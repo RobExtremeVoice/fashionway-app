@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView, StatusBar } from 'react-nativ
 import { router } from 'expo-router'
 import { useColetaStore } from '../../store/coleta.store'
 import { AddressForm, StepBar } from '../../components/AddressForm'
+import { Breadcrumb } from '../../components/ui/Breadcrumb'
 
 export default function ColetaOrigemScreen() {
   const setOrigin  = useColetaStore((s) => s.setOrigin)
@@ -18,7 +19,12 @@ export default function ColetaOrigemScreen() {
         paddingTop: 56, paddingBottom: 28, paddingHorizontal: 24,
         borderBottomLeftRadius: 28, borderBottomRightRadius: 28,
       }}>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: 16 }}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Voltar para a tela anterior"
+          style={{ marginBottom: 16, minHeight: 44, justifyContent: 'center' }}
+        >
           <Text style={{ color: '#93C5FD', fontSize: 15, fontWeight: '600' }}>← Voltar</Text>
         </TouchableOpacity>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
@@ -43,6 +49,13 @@ export default function ColetaOrigemScreen() {
         keyboardDismissMode="on-drag"
       >
         <StepBar current={0} />
+        <Breadcrumb
+          items={[
+            { label: 'Início', onPress: () => router.replace('/(loja)/home') },
+            { label: 'Coleta' },
+            { label: 'Origem' },
+          ]}
+        />
 
         <AddressForm
           submitLabel="Continuar → Destino"

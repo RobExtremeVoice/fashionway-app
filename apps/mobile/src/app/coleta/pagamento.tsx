@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import {
   View, Text, TouchableOpacity, ScrollView,
-  Alert, ActivityIndicator, StatusBar,
+  Alert, StatusBar,
 } from 'react-native'
 import { router } from 'expo-router'
 import { useColetaStore } from '../../store/coleta.store'
 import { formatBRL } from '@fashionway/shared'
 import { api } from '../../services/api'
+import { StepProgress } from '../../components/ui/StepProgress'
+import { Breadcrumb } from '../../components/ui/Breadcrumb'
+import { Button } from '../../components/ui/Button'
 
 const METHODS = [
   {
@@ -46,34 +49,6 @@ const METHODS = [
 ] as const
 
 const STEPS = ['Origem', 'Destino', 'Serviço', 'Pagamento']
-
-function StepBar({ current }: { current: number }) {
-  return (
-    <View style={{ flexDirection: 'row', gap: 0, marginBottom: 24, alignItems: 'center' }}>
-      {STEPS.map((step, i) => (
-        <View key={step} style={{ flex: 1, alignItems: 'center' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%', marginBottom: 8 }}>
-            {i > 0 && <View style={{ flex: 1, height: 2, backgroundColor: i <= current ? '#1D4ED8' : '#E5E7EB' }} />}
-            <View style={{
-              width: 28, height: 28, borderRadius: 14,
-              backgroundColor: i <= current ? '#1D4ED8' : '#E5E7EB',
-              alignItems: 'center', justifyContent: 'center',
-              borderWidth: i === current ? 3 : 0, borderColor: '#93C5FD',
-            }}>
-              <Text style={{ color: i <= current ? '#fff' : '#9CA3AF', fontSize: 11, fontWeight: '700' }}>
-                {i < current ? '✓' : String(i + 1)}
-              </Text>
-            </View>
-            {i < STEPS.length - 1 && <View style={{ flex: 1, height: 2, backgroundColor: i < current ? '#1D4ED8' : '#E5E7EB' }} />}
-          </View>
-          <Text style={{ fontSize: 10, fontWeight: '600', color: i <= current ? '#1D4ED8' : '#9CA3AF', textAlign: 'center' }}>
-            {step}
-          </Text>
-        </View>
-      ))}
-    </View>
-  )
-}
 
 export default function ColetaPagamentoScreen() {
   const [loading, setLoading] = useState(false)
@@ -126,8 +101,6 @@ export default function ColetaPagamentoScreen() {
     }
   }
 
-  const selectedMethod = METHODS.find((m) => m.id === method)!
-
   return (
     <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
       <StatusBar barStyle="light-content" backgroundColor="#1D4ED8" />
@@ -138,7 +111,12 @@ export default function ColetaPagamentoScreen() {
         paddingTop: 56, paddingBottom: 28, paddingHorizontal: 24,
         borderBottomLeftRadius: 28, borderBottomRightRadius: 28,
       }}>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: 16 }}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Voltar para seleção de serviço"
+          style={{ marginBottom: 16, minHeight: 44, justifyContent: 'center' }}
+        >
           <Text style={{ color: '#93C5FD', fontSize: 15, fontWeight: '600' }}>← Voltar</Text>
         </TouchableOpacity>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
@@ -162,7 +140,14 @@ export default function ColetaPagamentoScreen() {
         contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
-        <StepBar current={3} />
+        <StepProgress current={3} steps={STEPS} />
+        <Breadcrumb
+          items={[
+            { label: 'Início', onPress: () => router.replace('/(loja)/home') },
+            { label: 'Coleta', onPress: () => router.back() },
+            { label: 'Pagamento' },
+          ]}
+        />
 
         {/* Order summary */}
         {quote && (
@@ -291,25 +276,13 @@ export default function ColetaPagamentoScreen() {
         </View>
 
         {/* CTA */}
-        <TouchableOpacity
-          onPress={handleSolicitar} disabled={loading}
-          style={{
-            backgroundColor: loading ? '#93C5FD' : '#1D4ED8',
-            borderRadius: 16, paddingVertical: 17, alignItems: 'center',
-            shadowColor: '#1D4ED8', shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: 0.35, shadowRadius: 14, elevation: 8,
-          }}
-        >
-          {loading
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 }}>
-                {quote
-                  ? `Pagar ${formatBRL(quote.valorFrete)} e Solicitar 🚀`
-                  : 'Solicitar Coleta 🚀'
-                }
-              </Text>
-          }
-        </TouchableOpacity>
+        <Button
+          onPress={handleSolicitar}
+          disabled={loading}
+          loading={loading}
+          label={quote ? `Pagar ${formatBRL(quote.valorFrete)} e Solicitar 🚀` : 'Solicitar Coleta 🚀'}
+          accessibilityLabel="Confirmar pagamento e solicitar coleta"
+        />
       </ScrollView>
     </View>
   )

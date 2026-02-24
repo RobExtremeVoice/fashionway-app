@@ -63,7 +63,8 @@ export class AuthService {
           motoboyProfile: {
             create: {
               nomeCompleto: dto.name,
-              cpf: '',
+              // CPF real será preenchido no onboarding; usa placeholder único para respeitar constraint.
+              cpf: `pending-${dto.phone.replace(/\D/g, '')}`,
               dataNascimento: new Date('2000-01-01'),
               tipoVeiculo: 'moto',
               cidadeAtuacao: '',

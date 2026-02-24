@@ -1,11 +1,15 @@
 import { useEffect } from 'react'
 import {
   View, Text, TouchableOpacity, ScrollView,
-  ActivityIndicator, StatusBar,
+  StatusBar,
 } from 'react-native'
 import { router } from 'expo-router'
 import { useColetaStore } from '../../store/coleta.store'
 import { formatBRL } from '@fashionway/shared'
+import { StepProgress } from '../../components/ui/StepProgress'
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
+import { Breadcrumb } from '../../components/ui/Breadcrumb'
+import { Button } from '../../components/ui/Button'
 
 const TIER_META: Record<string, { icon: string; color: string; bg: string; accent: string; badge?: string }> = {
   URGENTE:  { icon: '🚨', color: '#DC2626', bg: '#FEF2F2', accent: '#DC2626', badge: 'Mais rápido' },
@@ -14,34 +18,6 @@ const TIER_META: Record<string, { icon: string; color: string; bg: string; accen
 }
 
 const STEPS = ['Origem', 'Destino', 'Serviço', 'Pagamento']
-
-function StepBar({ current }: { current: number }) {
-  return (
-    <View style={{ flexDirection: 'row', gap: 0, marginBottom: 24, alignItems: 'center' }}>
-      {STEPS.map((step, i) => (
-        <View key={step} style={{ flex: 1, alignItems: 'center' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%', marginBottom: 8 }}>
-            {i > 0 && <View style={{ flex: 1, height: 2, backgroundColor: i <= current ? '#1D4ED8' : '#E5E7EB' }} />}
-            <View style={{
-              width: 28, height: 28, borderRadius: 14,
-              backgroundColor: i <= current ? '#1D4ED8' : '#E5E7EB',
-              alignItems: 'center', justifyContent: 'center',
-              borderWidth: i === current ? 3 : 0, borderColor: '#93C5FD',
-            }}>
-              <Text style={{ color: i <= current ? '#fff' : '#9CA3AF', fontSize: 11, fontWeight: '700' }}>
-                {i < current ? '✓' : String(i + 1)}
-              </Text>
-            </View>
-            {i < STEPS.length - 1 && <View style={{ flex: 1, height: 2, backgroundColor: i < current ? '#1D4ED8' : '#E5E7EB' }} />}
-          </View>
-          <Text style={{ fontSize: 10, fontWeight: '600', color: i <= current ? '#1D4ED8' : '#9CA3AF', textAlign: 'center' }}>
-            {step}
-          </Text>
-        </View>
-      ))}
-    </View>
-  )
-}
 
 export default function ColetaServicoScreen() {
   const quotes       = useColetaStore((s) => s.quotes)
@@ -65,7 +41,12 @@ export default function ColetaServicoScreen() {
         paddingTop: 56, paddingBottom: 28, paddingHorizontal: 24,
         borderBottomLeftRadius: 28, borderBottomRightRadius: 28,
       }}>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: 16 }}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Voltar para destino"
+          style={{ marginBottom: 16, minHeight: 44, justifyContent: 'center' }}
+        >
           <Text style={{ color: '#93C5FD', fontSize: 15, fontWeight: '600' }}>← Voltar</Text>
         </TouchableOpacity>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
@@ -89,7 +70,14 @@ export default function ColetaServicoScreen() {
         contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
-        <StepBar current={2} />
+        <StepProgress current={2} steps={STEPS} />
+        <Breadcrumb
+          items={[
+            { label: 'Início', onPress: () => router.replace('/(loja)/home') },
+            { label: 'Coleta', onPress: () => router.back() },
+            { label: 'Serviço' },
+          ]}
+        />
 
         {/* Route summary */}
         <View style={{
@@ -128,10 +116,7 @@ export default function ColetaServicoScreen() {
 
         {/* Service cards */}
         {quotes.length === 0 ? (
-          <View style={{ alignItems: 'center', paddingVertical: 40 }}>
-            <ActivityIndicator size="large" color="#1D4ED8" />
-            <Text style={{ color: '#6B7280', marginTop: 12, fontSize: 14 }}>Calculando preços...</Text>
-          </View>
+          <LoadingSpinner label="Calculando preços..." />
         ) : (
           quotes.map((q) => {
             const meta = TIER_META[q.serviceTier] ?? TIER_META.PADRAO
@@ -235,25 +220,13 @@ export default function ColetaServicoScreen() {
         )}
 
         {/* CTA */}
-        <TouchableOpacity
+        <Button
           onPress={() => selectedTier && router.push('/coleta/pagamento')}
           disabled={!selectedTier}
-          style={{
-            backgroundColor: selectedTier ? '#1D4ED8' : '#E5E7EB',
-            borderRadius: 16, paddingVertical: 17, alignItems: 'center',
-            marginTop: 8,
-            shadowColor: selectedTier ? '#1D4ED8' : 'transparent',
-            shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: 0.35, shadowRadius: 14, elevation: selectedTier ? 8 : 0,
-          }}
-        >
-          <Text style={{
-            color: selectedTier ? '#fff' : '#9CA3AF',
-            fontSize: 16, fontWeight: '700', letterSpacing: 0.3,
-          }}>
-            Continuar → Pagamento
-          </Text>
-        </TouchableOpacity>
+          label="Continuar → Pagamento"
+          accessibilityLabel="Continuar para pagamento"
+          style={{ marginTop: 8 }}
+        />
       </ScrollView>
     </View>
   )

@@ -32,27 +32,6 @@ export default function LojaLayout() {
           tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} />,
         }}
       />
-      <Tabs.Screen
-        name="activity"
-        options={{
-          title: 'Histórico',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="📋" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="services"
-        options={{
-          title: 'Serviços',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="⚡" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="account/index"
-        options={{
-          title: 'Conta',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="👤" focused={focused} />,
-        }}
-      />
     </Tabs>
   )
 }

@@ -2,23 +2,29 @@ import { useState } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity,
   KeyboardAvoidingView, Platform, Alert,
-  ActivityIndicator, ScrollView, StatusBar,
+  ScrollView, StatusBar,
 } from 'react-native'
 import { router } from 'expo-router'
 import { useAuthStore } from '../../store/auth.store'
+import { Button } from '../../components/ui/Button'
 
 export default function LoginScreen() {
-  const [email, setEmail]       = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [loading, setLoading]   = useState(false)
+  const [loading, setLoading] = useState(false)
   const [showPass, setShowPass] = useState(false)
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
   const login = useAuthStore((s) => s.login)
 
   async function handleLogin() {
-    if (!email || !password) {
-      Alert.alert('Atenção', 'Preencha e-mail e senha')
-      return
-    }
+    const nextErrors: { email?: string; password?: string } = {}
+    if (!email.trim()) nextErrors.email = 'E-mail é obrigatório'
+    else if (!/\S+@\S+\.\S+/.test(email.trim())) nextErrors.email = 'Informe um e-mail válido'
+    if (!password) nextErrors.password = 'Senha é obrigatória'
+    setErrors(nextErrors)
+
+    if (Object.keys(nextErrors).length > 0) return
+
     setLoading(true)
     try {
       await login(email, password)
@@ -30,126 +36,97 @@ export default function LoginScreen() {
     }
   }
 
+  const inputShell = (hasError?: boolean) => ({
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: hasError ? '#EF4444' : '#D1D5DB',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    minHeight: 54,
+  })
+
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <StatusBar barStyle="light-content" backgroundColor="#1D4ED8" />
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#0F172A' }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+        <View style={{ position: 'absolute', top: 80, right: -70, width: 230, height: 230, borderRadius: 115, backgroundColor: 'rgba(59,130,246,0.35)' }} />
+        <View style={{ position: 'absolute', top: 260, left: -90, width: 260, height: 260, borderRadius: 130, backgroundColor: 'rgba(16,185,129,0.2)' }} />
 
-        {/* ── HERO ── */}
-        <View style={{
-          backgroundColor: '#1D4ED8',
-          paddingTop: 72, paddingBottom: 44, paddingHorizontal: 28,
-          borderBottomLeftRadius: 36, borderBottomRightRadius: 36,
-        }}>
-          <View style={{
-            width: 64, height: 64, backgroundColor: 'rgba(255,255,255,0.18)',
-            borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 18,
-          }}>
-            <Text style={{ fontSize: 34 }}>👗</Text>
-          </View>
-          <Text style={{ color: '#fff', fontSize: 34, fontWeight: '800', letterSpacing: -1 }}>FashionWay</Text>
-          <Text style={{ color: '#93C5FD', fontSize: 15, marginTop: 6 }}>Logística inteligente para a moda</Text>
+        <View style={{ paddingHorizontal: 24, paddingTop: 70, paddingBottom: 24 }}>
+          <TouchableOpacity onPress={() => router.replace('/')} accessibilityLabel="Voltar para início" style={{ marginBottom: 18 }}>
+            <Text style={{ color: '#BFDBFE', fontSize: 14, fontWeight: '700' }}>← Início</Text>
+          </TouchableOpacity>
 
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 22 }}>
-            {[['1.200+', 'Lojas'], ['98%', 'No prazo'], ['5 ⭐', 'Avaliação']].map(([val, lbl]) => (
-              <View key={lbl} style={{
-                backgroundColor: 'rgba(255,255,255,0.13)', borderRadius: 12,
-                paddingHorizontal: 14, paddingVertical: 9, alignItems: 'center',
-              }}>
-                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>{val}</Text>
-                <Text style={{ color: '#BFDBFE', fontSize: 11, marginTop: 1 }}>{lbl}</Text>
-              </View>
-            ))}
+          <View style={{ width: 72, height: 72, borderRadius: 24, backgroundColor: '#1D4ED8', alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: '#fff', fontSize: 28, fontWeight: '900' }}>FW</Text>
           </View>
+
+          <Text style={{ color: '#fff', fontSize: 36, fontWeight: '900', marginTop: 18 }}>Entrar</Text>
+          <Text style={{ color: '#BFDBFE', fontSize: 15, marginTop: 8 }}>Acesse sua conta e continue seu fluxo de entregas.</Text>
         </View>
 
-        {/* ── FORM ── */}
-        <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 32 }}>
-          <Text style={{ fontSize: 22, fontWeight: '700', color: '#111827' }}>Bem-vindo de volta</Text>
-          <Text style={{ fontSize: 14, color: '#6B7280', marginTop: 4, marginBottom: 28 }}>Entre na sua conta para continuar</Text>
+        <View style={{ flex: 1, backgroundColor: '#F8FAFC', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 22, paddingTop: 24, paddingBottom: 32 }}>
+          <Text style={{ color: '#0F172A', fontSize: 21, fontWeight: '800' }}>Bem-vindo de volta</Text>
+          <Text style={{ color: '#6B7280', fontSize: 14, marginTop: 4, marginBottom: 20 }}>Design mais limpo, campos maiores e leitura confortável.</Text>
 
-          {/* Email */}
           <View style={{ marginBottom: 14 }}>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 8 }}>E-mail</Text>
-            <View style={{
-              flexDirection: 'row', alignItems: 'center',
-              backgroundColor: '#F9FAFB', borderWidth: 1.5, borderColor: '#E5E7EB',
-              borderRadius: 14, paddingHorizontal: 14,
-            }}>
-              <Text style={{ fontSize: 17, marginRight: 10 }}>📧</Text>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#374151', marginBottom: 8 }}>E-mail</Text>
+            <View style={inputShell(Boolean(errors.email))}>
+              <Text style={{ fontSize: 18, marginRight: 10 }}>✉️</Text>
               <TextInput
-                style={{ flex: 1, paddingVertical: 14, fontSize: 15, color: '#111827' }}
-                placeholder="seu@email.com" placeholderTextColor="#9CA3AF"
-                value={email} onChangeText={setEmail}
-                keyboardType="email-address" autoCapitalize="none"
+                style={{ flex: 1, fontSize: 16, color: '#111827', paddingVertical: 14 }}
+                placeholder="seu@email.com"
+                placeholderTextColor="#9CA3AF"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                accessibilityLabel="Campo de e-mail"
               />
             </View>
+            {errors.email && <Text style={{ color: '#EF4444', marginTop: 6, fontSize: 12 }}>{errors.email}</Text>}
           </View>
 
-          {/* Senha */}
           <View style={{ marginBottom: 6 }}>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 8 }}>Senha</Text>
-            <View style={{
-              flexDirection: 'row', alignItems: 'center',
-              backgroundColor: '#F9FAFB', borderWidth: 1.5, borderColor: '#E5E7EB',
-              borderRadius: 14, paddingHorizontal: 14,
-            }}>
-              <Text style={{ fontSize: 17, marginRight: 10 }}>🔒</Text>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#374151', marginBottom: 8 }}>Senha</Text>
+            <View style={inputShell(Boolean(errors.password))}>
+              <Text style={{ fontSize: 18, marginRight: 10 }}>🔐</Text>
               <TextInput
-                style={{ flex: 1, paddingVertical: 14, fontSize: 15, color: '#111827' }}
-                placeholder="Sua senha" placeholderTextColor="#9CA3AF"
-                value={password} onChangeText={setPassword} secureTextEntry={!showPass}
+                style={{ flex: 1, fontSize: 16, color: '#111827', paddingVertical: 14 }}
+                placeholder="Sua senha"
+                placeholderTextColor="#9CA3AF"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPass}
+                accessibilityLabel="Campo de senha"
               />
-              <TouchableOpacity onPress={() => setShowPass(!showPass)} style={{ padding: 4 }}>
+              <TouchableOpacity onPress={() => setShowPass(!showPass)} style={{ padding: 6 }}>
                 <Text style={{ fontSize: 18 }}>{showPass ? '🙈' : '👁️'}</Text>
               </TouchableOpacity>
             </View>
+            {errors.password && <Text style={{ color: '#EF4444', marginTop: 6, fontSize: 12 }}>{errors.password}</Text>}
           </View>
 
-          <TouchableOpacity style={{ alignSelf: 'flex-end', marginBottom: 28, padding: 4 }}>
-            <Text style={{ color: '#1D4ED8', fontSize: 13, fontWeight: '600' }}>Esqueci a senha</Text>
-          </TouchableOpacity>
-
-          {/* CTA principal */}
           <TouchableOpacity
-            onPress={handleLogin} disabled={loading}
-            style={{
-              backgroundColor: loading ? '#93C5FD' : '#1D4ED8',
-              borderRadius: 16, paddingVertical: 17, alignItems: 'center',
-              shadowColor: '#1D4ED8', shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.35, shadowRadius: 14, elevation: 8,
-            }}
+            onPress={() => Alert.alert('Em breve', 'Recuperação de senha será disponibilizada em breve')}
+            accessibilityRole="button"
+            accessibilityLabel="Recuperar senha"
+            style={{ alignSelf: 'flex-end', marginBottom: 20, padding: 4 }}
           >
-            {loading
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 }}>Entrar →</Text>
-            }
+            <Text style={{ color: '#2563EB', fontSize: 13, fontWeight: '700' }}>Esqueci a senha</Text>
           </TouchableOpacity>
 
-          {/* Divisor */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 22 }}>
-            <View style={{ flex: 1, height: 1, backgroundColor: '#F3F4F6' }} />
-            <Text style={{ color: '#9CA3AF', paddingHorizontal: 14, fontSize: 13 }}>ou</Text>
-            <View style={{ flex: 1, height: 1, backgroundColor: '#F3F4F6' }} />
+          <Button onPress={handleLogin} disabled={loading} loading={loading} label="Entrar agora" accessibilityLabel="Entrar na conta" style={{ backgroundColor: '#10B981', borderColor: '#10B981' }} />
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 18 }}>
+            <View style={{ flex: 1, height: 1, backgroundColor: '#E5E7EB' }} />
+            <Text style={{ color: '#9CA3AF', paddingHorizontal: 12, fontSize: 12 }}>OU</Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: '#E5E7EB' }} />
           </View>
 
-          {/* Cadastro */}
-          <TouchableOpacity
-            onPress={() => router.push('/(auth)/register')}
-            style={{
-              borderWidth: 1.5, borderColor: '#1D4ED8',
-              borderRadius: 16, paddingVertical: 17, alignItems: 'center',
-            }}
-          >
-            <Text style={{ color: '#1D4ED8', fontSize: 16, fontWeight: '700' }}>Criar nova conta</Text>
-          </TouchableOpacity>
-
-          <Text style={{ textAlign: 'center', color: '#9CA3AF', fontSize: 12, marginTop: 24, lineHeight: 18, marginBottom: 36 }}>
-            Ao entrar, você concorda com nossos{'\n'}
-            <Text style={{ color: '#1D4ED8' }}>Termos de Uso</Text>
-            {' '}e{' '}
-            <Text style={{ color: '#1D4ED8' }}>Política de Privacidade</Text>
-          </Text>
+          <Button label="Criar nova conta" variant="secondary" onPress={() => router.push('/(auth)/register')} accessibilityLabel="Ir para criação de conta" />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

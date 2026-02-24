@@ -9,6 +9,8 @@ import { AddressesModule } from './addresses/addresses.module'
 import { ColetaModule } from './coleta/coleta.module'
 import { PricingModule } from './pricing/pricing.module'
 import { StripeModule } from './stripe/stripe.module'
+import { MotoboysModule } from './motoboys/motoboys.module'
+import { PaymentsModule } from './payments/payments.module'
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard'
 import { RolesGuard } from './auth/guards/roles.guard'
 
@@ -22,6 +24,8 @@ import { RolesGuard } from './auth/guards/roles.guard'
     PricingModule,
     ColetaModule,
     StripeModule,
+    MotoboysModule,
+    PaymentsModule,
   ],
   providers: [
     // Guards globais: todos os endpoints precisam de JWT por padrão

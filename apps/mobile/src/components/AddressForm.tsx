@@ -1,10 +1,12 @@
 import { useState, useRef } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity,
-  ScrollView, Alert, ActivityIndicator,
+  Alert, ActivityIndicator,
 } from 'react-native'
 import { api } from '../services/api'
 import { formatCEP } from '@fashionway/shared'
+import { Button } from './ui/Button'
+import { StepProgress } from './ui/StepProgress'
 
 export interface AddressData {
   cep: string
@@ -40,31 +42,7 @@ interface Props {
 const STEPS = ['Origem', 'Destino', 'Serviço', 'Pagamento']
 
 export function StepBar({ current }: { current: number }) {
-  return (
-    <View style={{ flexDirection: 'row', gap: 0, marginBottom: 28, alignItems: 'center' }}>
-      {STEPS.map((step, i) => (
-        <View key={step} style={{ flex: 1, alignItems: 'center' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%', marginBottom: 8 }}>
-            {i > 0 && <View style={{ flex: 1, height: 2, backgroundColor: i <= current ? '#1D4ED8' : '#E5E7EB' }} />}
-            <View style={{
-              width: 28, height: 28, borderRadius: 14,
-              backgroundColor: i <= current ? '#1D4ED8' : '#E5E7EB',
-              alignItems: 'center', justifyContent: 'center',
-              borderWidth: i === current ? 3 : 0, borderColor: '#93C5FD',
-            }}>
-              <Text style={{ color: i <= current ? '#fff' : '#9CA3AF', fontSize: 11, fontWeight: '700' }}>
-                {i < current ? '✓' : String(i + 1)}
-              </Text>
-            </View>
-            {i < STEPS.length - 1 && <View style={{ flex: 1, height: 2, backgroundColor: i < current ? '#1D4ED8' : '#E5E7EB' }} />}
-          </View>
-          <Text style={{ fontSize: 10, fontWeight: '600', color: i <= current ? '#1D4ED8' : '#9CA3AF', textAlign: 'center' }}>
-            {step}
-          </Text>
-        </View>
-      ))}
-    </View>
-  )
+  return <StepProgress current={current} steps={STEPS} />
 }
 
 export function AddressForm({ onSubmit, submitLabel, submitting, contactPlaceholder }: Props) {
@@ -380,22 +358,13 @@ export function AddressForm({ onSubmit, submitLabel, submitting, contactPlacehol
       </View>
 
       {/* ── CTA ── */}
-      <TouchableOpacity
-        onPress={handleSubmit} disabled={submitting}
-        style={{
-          backgroundColor: submitting ? '#93C5FD' : '#1D4ED8',
-          borderRadius: 16, paddingVertical: 17, alignItems: 'center',
-          shadowColor: '#1D4ED8', shadowOffset: { width: 0, height: 6 },
-          shadowOpacity: 0.35, shadowRadius: 14, elevation: 8,
-        }}
-      >
-        {submitting
-          ? <ActivityIndicator color="#fff" />
-          : <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 }}>
-              {submitLabel}
-            </Text>
-        }
-      </TouchableOpacity>
+      <Button
+        onPress={handleSubmit}
+        disabled={submitting}
+        loading={submitting}
+        label={submitLabel}
+        accessibilityLabel={submitLabel}
+      />
     </View>
   )
 }

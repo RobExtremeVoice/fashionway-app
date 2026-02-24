@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView, StatusBar, Alert } from 'reac
 import { router } from 'expo-router'
 import { useColetaStore } from '../../store/coleta.store'
 import { AddressForm, StepBar } from '../../components/AddressForm'
+import { Breadcrumb } from '../../components/ui/Breadcrumb'
 
 export default function ColetaDestinoScreen() {
   const setDestination = useColetaStore((s) => s.setDestination)
@@ -19,7 +20,12 @@ export default function ColetaDestinoScreen() {
         paddingTop: 56, paddingBottom: 28, paddingHorizontal: 24,
         borderBottomLeftRadius: 28, borderBottomRightRadius: 28,
       }}>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: 16 }}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Voltar para a origem da coleta"
+          style={{ marginBottom: 16, minHeight: 44, justifyContent: 'center' }}
+        >
           <Text style={{ color: '#93C5FD', fontSize: 15, fontWeight: '600' }}>← Voltar</Text>
         </TouchableOpacity>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
@@ -44,6 +50,13 @@ export default function ColetaDestinoScreen() {
         keyboardDismissMode="on-drag"
       >
         <StepBar current={1} />
+        <Breadcrumb
+          items={[
+            { label: 'Início', onPress: () => router.replace('/(loja)/home') },
+            { label: 'Coleta', onPress: () => router.back() },
+            { label: 'Destino' },
+          ]}
+        />
 
         <AddressForm
           submitLabel="Continuar → Serviço"
