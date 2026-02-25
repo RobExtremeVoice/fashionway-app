@@ -90,6 +90,8 @@ export class ColetaService {
         valorRepasse,
         taxaPlataforma,
         distanciaKm,
+        quantidadeItens: dto.quantidadeItens,
+        pesoTotalKg: dto.pesoTotalKg,
         paymentMethod: dto.paymentMethod as any,
         // Histórico inicial
         statusHistory: {
@@ -225,6 +227,28 @@ export class ColetaService {
     this.checkReadPermission(user, coleta)
 
     return coleta
+  }
+
+  // ─── CHAT / MENSAGENS ─────────────────────────────────────────────────
+
+  async getMessages(coletaId: string, user: CurrentUser) {
+    const coleta = await this.prisma.coleta.findUniqueOrThrow({ where: { id: coletaId } })
+    this.checkReadPermission(user, coleta)
+    return this.prisma.message.findMany({
+      where: { coletaId },
+      orderBy: { createdAt: 'asc' },
+      include: { sender: { select: { id: true, role: true } } },
+    })
+  }
+
+  async sendMessage(coletaId: string, user: CurrentUser, text: string) {
+    if (!text?.trim()) throw new BadRequestException('Mensagem não pode ser vazia')
+    const coleta = await this.prisma.coleta.findUniqueOrThrow({ where: { id: coletaId } })
+    this.checkReadPermission(user, coleta)
+    return this.prisma.message.create({
+      data: { coletaId, senderId: user.id, text: text.trim() },
+      include: { sender: { select: { id: true, role: true } } },
+    })
   }
 
   // ─── MOTOBOYS DISPONÍVEIS (para Admin/Intermediário) ──────────────────

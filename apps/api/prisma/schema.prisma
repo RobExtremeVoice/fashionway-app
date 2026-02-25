@@ -161,6 +161,7 @@ model User {
   payments      Payment[]
   payouts       Payout[]
   notifications Notification[]
+  messagesSent  Message[]       @relation("MessagesSent")
 
   reviewsDados    Review[] @relation("ReviewAvaliador")
   reviewsRecebidos Review[] @relation("ReviewAvaliado")
@@ -351,6 +352,8 @@ model Coleta {
   valorRepasse   Int
   taxaPlataforma Int
   distanciaKm    Float
+  quantidadeItens Int?
+  pesoTotalKg     Float?
 
   pickupPhotoUrl   String?
   deliveryPhotoUrl String?
@@ -366,6 +369,8 @@ model Coleta {
   bulkShipment   BulkShipment? @relation(fields: [bulkShipmentId], references: [id])
 
   notasInternas String?
+
+  messages Message[]
 
   acceptedAt    DateTime?
   pickedUpAt    DateTime?
@@ -653,6 +658,23 @@ model Notification {
 
   @@index([userId, read])
   @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────
+// CHAT
+// ─────────────────────────────────────────────
+
+model Message {
+  id        String   @id @default(cuid())
+  coletaId  String
+  coleta    Coleta   @relation(fields: [coletaId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User     @relation("MessagesSent", fields: [senderId], references: [id])
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([coletaId, createdAt])
+  @@index([senderId])
 }
 
 // ─────────────────────────────────────────────

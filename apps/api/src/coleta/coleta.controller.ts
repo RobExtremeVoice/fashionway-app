@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Patch, Body,
-  Param, Query, UseGuards, ParseEnumPipe,
+  Param, Query, UseGuards,
 } from '@nestjs/common'
 import { ColetaStatus, Role } from '@prisma/client'
 import { ColetaService } from './coleta.service'
@@ -73,5 +73,21 @@ export class ColetaController {
   @Roles('ADMIN', 'INTERMEDIARIO')
   findAvailableMotoboys(@Param('id') id: string) {
     return this.coletaService.findAvailableMotoboys(id)
+  }
+
+  // Chat: listar mensagens da coleta
+  @Get(':id/messages')
+  getMessages(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.coletaService.getMessages(id, user)
+  }
+
+  // Chat: enviar mensagem
+  @Post(':id/messages')
+  sendMessage(
+    @Param('id') id: string,
+    @Body('text') text: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.coletaService.sendMessage(id, user, text)
   }
 }

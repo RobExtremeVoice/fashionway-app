@@ -24,6 +24,9 @@ export default function Index() {
       case 'INTERMEDIARIO':
         router.replace('/(loja)/home')
         break
+      case 'TRANSPORTADORA':
+        router.replace('/(transportadora)/home')
+        break
       default:
         router.replace('/(auth)/login')
     }

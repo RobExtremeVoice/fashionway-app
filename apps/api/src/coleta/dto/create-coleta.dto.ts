@@ -78,6 +78,14 @@ export class CreateColetaDto {
   @IsEnum(PaymentMethod)
   paymentMethod: PaymentMethod
 
+  @IsOptional()
+  @IsNumber()
+  quantidadeItens?: number
+
+  @IsOptional()
+  @IsNumber()
+  pesoTotalKg?: number
+
   // Apenas Intermediário
   @IsOptional()
   @IsString()

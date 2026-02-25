@@ -9,12 +9,12 @@ function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
   )
 }
 
-export default function MotoboyLayout() {
+export default function TransportadoraLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#10B981',
+        tabBarActiveTintColor: '#7C3AED',
         tabBarInactiveTintColor: '#9CA3AF',
         tabBarStyle: {
           borderTopColor: '#F3F4F6',
@@ -33,10 +33,10 @@ export default function MotoboyLayout() {
         }}
       />
       <Tabs.Screen
-        name="receitas"
+        name="despesas"
         options={{
-          title: 'Receitas',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="💰" focused={focused} />,
+          title: 'Despesas',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="💳" focused={focused} />,
         }}
       />
       <Tabs.Screen
