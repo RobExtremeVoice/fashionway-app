@@ -9,6 +9,7 @@ export default function ColetaLayout() {
       <Stack.Screen name="pagamento" />
       <Stack.Screen name="pix-qr" />
       <Stack.Screen name="confirmacao" />
+      <Stack.Screen name="tracking" />
     </Stack>
   )
 }
