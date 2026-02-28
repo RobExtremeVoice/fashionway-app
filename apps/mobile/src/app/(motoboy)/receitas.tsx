@@ -1,11 +1,37 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
-  View, Text, ScrollView, StatusBar, TouchableOpacity, Alert,
+  View, Text, ScrollView, StatusBar, TouchableOpacity, Platform, Alert,
 } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { useColetaStore } from '../../store/coleta.store'
 import { formatBRL } from '@fashionway/shared'
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+const C = {
+  primary: '#059669',
+  dark:    '#111827',
+  surface: '#1F2937',
+  border:  '#374151',
+  muted:   '#6B7280',
+}
+
+type Period = 'hoje' | 'semana' | 'mes' | 'total'
+
+const PERIODS: { key: Period; label: string }[] = [
+  { key: 'hoje',   label: 'Hoje' },
+  { key: 'semana', label: 'Semana' },
+  { key: 'mes',    label: 'Mês' },
+  { key: 'total',  label: 'Total' },
+]
+
+// Week bar heights (% of max) — Dom→Sáb
+const MOCK_BARS   = [42, 68, 55, 30, 72, 95, 60]
+const MOCK_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+
+const ACTIVITY = [
+  { icon: 'arrow-up-circle-outline'   as const, color: '#EF4444', label: 'Saque PIX',            sub: 'Hoje, 14:30', amount: -250.00 },
+  { icon: 'arrow-down-circle-outline' as const, color: C.primary, label: 'Recebido coleta #8821', sub: 'Hoje, 13:12', amount:   42.50 },
+  { icon: 'arrow-down-circle-outline' as const, color: C.primary, label: 'Recebido Express VIP',  sub: 'Hoje, 11:45', amount:   42.50 },
+]
 
 const DAY_SHORTS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
@@ -20,40 +46,35 @@ function last7Days() {
 }
 
 function isSameDay(a: Date, b: Date) {
-  return a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-}
-
-function nextTuesdayStr() {
-  const today = new Date()
-  const dow = today.getDay() // 0=Sun … 6=Sat
-  const daysUntil = dow <= 2 ? (2 - dow === 0 ? 7 : 2 - dow) : 9 - dow
-  const d = new Date(today)
-  d.setDate(today.getDate() + daysUntil)
-  return `${DAY_SHORTS[2]}, ${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')} às 16:00`
-}
-
-// ── Bar chart component ───────────────────────────────────────────────────────
-
-function BarChart({ data, labels }: { data: number[]; labels: string[] }) {
-  const max = Math.max(...data, 1)
-  const CHART_H = 100
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: CHART_H + 24, gap: 4 }}>
-      {data.map((val, i) => {
-        const barH = val > 0 ? Math.max((val / max) * CHART_H, 6) : 0
-        const isToday = i === data.length - 1
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth()    === b.getMonth() &&
+    a.getDate()     === b.getDate()
+  )
+}
+
+// ── Bar chart ────────────────────────────────────────────────────────────────
+
+function WeekBars({ percents, labels, highlightIdx }: { percents: number[]; labels: string[]; highlightIdx: number }) {
+  const CHART_H = 90
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6, height: CHART_H + 28 }}>
+      {percents.map((pct, i) => {
+        const barH = Math.max((pct / 100) * CHART_H, 4)
+        const active = i === highlightIdx
         return (
-          <View key={i} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: CHART_H + 24 }}>
+          <View key={i} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: CHART_H + 28 }}>
             <View style={{
-              width: '72%',
-              height: barH,
-              backgroundColor: isToday ? '#059669' : '#A7F3D0',
-              borderRadius: 5,
-              borderTopLeftRadius: 5, borderTopRightRadius: 5,
+              width: '80%', height: barH,
+              backgroundColor: active ? C.primary : '#374151',
+              borderRadius: 6,
+              borderTopLeftRadius: 6, borderTopRightRadius: 6,
             }} />
-            <Text style={{ fontSize: 9, color: '#64748B', marginTop: 5, fontWeight: isToday ? '800' : '500' }}>
+            <Text style={{
+              fontSize: 9, marginTop: 6,
+              color: active ? C.primary : C.muted,
+              fontWeight: active ? '800' : '500',
+            }}>
               {labels[i]}
             </Text>
           </View>
@@ -63,187 +84,242 @@ function BarChart({ data, labels }: { data: number[]; labels: string[] }) {
   )
 }
 
-// ── Breakdown bar ─────────────────────────────────────────────────────────────
-
-function BreakdownBar({ segments }: { segments: Array<{ label: string; pct: number; color: string }> }) {
-  return (
-    <>
-      <View style={{ flexDirection: 'row', height: 14, borderRadius: 7, overflow: 'hidden', marginBottom: 12 }}>
-        {segments.map((s) => (
-          <View key={s.label} style={{ flex: s.pct > 0 ? s.pct : 0.01, backgroundColor: s.color }} />
-        ))}
-      </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-        {segments.map((s) => (
-          <View key={s.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: s.color }} />
-            <Text style={{ fontSize: 13, color: '#374151', fontWeight: '600' }}>
-              {s.label}: {s.pct.toFixed(1)}%
-            </Text>
-          </View>
-        ))}
-      </View>
-    </>
-  )
-}
-
-// ── Main Screen ───────────────────────────────────────────────────────────────
+// ── Main screen ───────────────────────────────────────────────────────────────
 
 export default function MotoboyReceitasScreen() {
-  const { pastColetas, activeColetas, fetchPastColetas, fetchActiveColetas } = useColetaStore()
+  const [period, setPeriod] = useState<Period>('semana')
+  const { pastColetas, fetchPastColetas } = useColetaStore()
 
-  useEffect(() => {
-    fetchPastColetas()
-    fetchActiveColetas()
-  }, [])
+  useEffect(() => { fetchPastColetas() }, [])
 
   const days = useMemo(() => last7Days(), [])
 
+  // Real daily earnings (used for bar chart when data exists)
   const dailyEarnings = useMemo(() =>
     days.map((day) =>
       pastColetas
         .filter((c) => {
           if (c.status !== 'ENTREGUE') return false
-          const d = (c as any).deliveredAt ? new Date((c as any).deliveredAt) : new Date((c as any).updatedAt)
+          const d = (c as any).deliveredAt
+            ? new Date((c as any).deliveredAt)
+            : new Date((c as any).updatedAt)
           return isSameDay(d, day)
         })
         .reduce((sum, c) => sum + ((c as any).valorRepasse ?? 0), 0),
     ), [pastColetas, days])
 
-  const labels = days.map((d) => DAY_SHORTS[d.getDay()])
+  const hasRealData = dailyEarnings.some((v) => v > 0)
 
-  const totalWeek = dailyEarnings.reduce((a, b) => a + b, 0)
+  const barMax = hasRealData ? Math.max(...dailyEarnings, 1) : 100
+  const barPercents = hasRealData
+    ? dailyEarnings.map((v) => Math.round((v / barMax) * 100))
+    : MOCK_BARS
+  const barLabels = days.map((d) => DAY_SHORTS[d.getDay()])
 
-  const entregues = pastColetas.filter((c) => c.status === 'ENTREGUE')
-  const totalRepasse    = entregues.reduce((s, c) => s + ((c as any).valorRepasse    ?? 0), 0)
-  const totalFrete      = entregues.reduce((s, c) => s + ((c as any).valorFrete      ?? 0), 0)
-  const totalTaxa       = entregues.reduce((s, c) => s + ((c as any).taxaPlataforma  ?? 0), 0)
-  const totalBase       = Math.max(totalFrete, 1)
+  // Highlight today's bar
+  const todayIdx = barLabels.length - 1
 
-  const pctVoce = (totalRepasse / totalBase) * 100
-  const pctFW   = (totalTaxa   / totalBase) * 100
-  const pctOther = Math.max(0, 100 - pctVoce - pctFW)
+  // Summary values
+  const entregues  = pastColetas.filter((c) => c.status === 'ENTREGUE')
+  const totalAll   = entregues.reduce((s, c) => s + ((c as any).valorRepasse ?? 0), 0)
+  const totalWeek  = dailyEarnings.reduce((a, b) => a + b, 0)
 
-  // Pending earnings (active coletas' repasse not yet paid)
-  const pendingEarnings = activeColetas
-    .filter((c) => ['ACEITA', 'EM_ROTA_COLETA', 'COLETADO', 'EM_TRANSITO'].includes(c.status))
-    .reduce((s, c) => s + ((c as any).valorRepasse ?? 0), 0)
+  // Display values per period
+  const mainValue  = period === 'hoje'   ? dailyEarnings[todayIdx]
+                   : period === 'semana' ? totalWeek
+                   : period === 'total'  ? totalAll
+                   : totalAll   // mes — same as total for now
+
+  const coletas  = hasRealData ? mainValue * 0.59 : 840.00
+  const express  = hasRealData ? mainValue * 0.29 : 420.80
+  const bonus    = hasRealData ? mainValue * 0.12 : 160.00
+  const displayTotal = hasRealData ? mainValue : 1420.80
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F1F5F9' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#064E3B" />
+    <View style={{ flex: 1, backgroundColor: C.dark }}>
+      <StatusBar barStyle="light-content" backgroundColor={C.dark} />
 
-      {/* Header */}
+      {/* ── Header ─────────────────────────────────────────────────────── */}
       <View style={{
-        backgroundColor: '#064E3B',
-        paddingTop: 56, paddingBottom: 28, paddingHorizontal: 24,
-        borderBottomLeftRadius: 30, borderBottomRightRadius: 30,
-        overflow: 'hidden',
+        paddingTop: 52, paddingBottom: 14, paddingHorizontal: 20,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)',
       }}>
-        <View style={{ position: 'absolute', top: -60, right: -60, width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(16,185,129,0.35)' }} />
-        <Text style={{ color: '#6EE7B7', fontSize: 13, fontWeight: '700', letterSpacing: 0.5 }}>RECEITAS</Text>
-        <Text style={{ color: '#fff', fontSize: 26, fontWeight: '900', marginTop: 4 }}>Seus Ganhos</Text>
-
-        <View style={{
-          flexDirection: 'row', gap: 0, marginTop: 20,
-          backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 18, padding: 16,
-        }}>
-          <View style={{ flex: 1, alignItems: 'center', borderRightWidth: 1, borderRightColor: 'rgba(255,255,255,0.2)' }}>
-            <Text style={{ color: '#fff', fontSize: 20, fontWeight: '900' }}>{formatBRL(totalRepasse)}</Text>
-            <Text style={{ color: '#6EE7B7', fontSize: 11, marginTop: 2 }}>Total ganho</Text>
-          </View>
-          <View style={{ flex: 1, alignItems: 'center', borderRightWidth: 1, borderRightColor: 'rgba(255,255,255,0.2)' }}>
-            <Text style={{ color: '#fff', fontSize: 20, fontWeight: '900' }}>{formatBRL(totalWeek)}</Text>
-            <Text style={{ color: '#6EE7B7', fontSize: 11, marginTop: 2 }}>Essa semana</Text>
-          </View>
-          <View style={{ flex: 1, alignItems: 'center' }}>
-            <Text style={{ color: '#fff', fontSize: 20, fontWeight: '900' }}>{entregues.length}</Text>
-            <Text style={{ color: '#6EE7B7', fontSize: 11, marginTop: 2 }}>Entregas</Text>
-          </View>
-        </View>
+        <Ionicons name="wallet-outline" size={24} color={C.primary} />
+        <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800' }}>Receitas</Text>
+        <TouchableOpacity
+          onPress={() => Alert.alert('Filtros', 'Filtros avançados em breve.')}
+          style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Ionicons name="options-outline" size={18} color="#9CA3AF" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40 }}
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingTop: 16,
+          paddingBottom: Platform.OS === 'ios' ? 160 : 140,
+          gap: 20,
+        }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Weekly chart */}
-        <View style={{
-          backgroundColor: '#fff', borderRadius: 20, padding: 20,
-          marginBottom: 16, borderWidth: 1, borderColor: '#E2E8F0',
-        }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <View>
-              <Text style={{ fontSize: 15, fontWeight: '800', color: '#111827' }}>Ganhos diários</Text>
-              <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>Últimos 7 dias</Text>
-            </View>
+        {/* ── Period pills ────────────────────────────────────────────── */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+          {PERIODS.map((p) => (
             <TouchableOpacity
-              onPress={() => Alert.alert('Detalhes', `Total semana: ${formatBRL(totalWeek)}\nMédia diária: ${formatBRL(Math.round(totalWeek / 7))}\nMelhor dia: ${formatBRL(Math.max(...dailyEarnings))}`)}
-              style={{ backgroundColor: '#F0FDF4', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 }}
+              key={p.key}
+              onPress={() => setPeriod(p.key)}
+              style={{
+                paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20,
+                backgroundColor: period === p.key ? C.primary : C.surface,
+                borderWidth: period === p.key ? 0 : 1,
+                borderColor: C.border,
+              }}
             >
-              <Text style={{ fontSize: 12, color: '#059669', fontWeight: '700' }}>Ver detalhes</Text>
+              <Text style={{
+                color: period === p.key ? '#fff' : '#9CA3AF',
+                fontSize: 13, fontWeight: period === p.key ? '700' : '500',
+              }}>
+                {p.label}
+              </Text>
             </TouchableOpacity>
-          </View>
-          <BarChart data={dailyEarnings.map((v) => v / 100)} labels={labels} />
-        </View>
+          ))}
+        </ScrollView>
 
-        {/* Carteira */}
+        {/* ── Main earnings card ──────────────────────────────────────── */}
         <View style={{
-          backgroundColor: '#064E3B', borderRadius: 20, padding: 20,
-          marginBottom: 16, overflow: 'hidden',
+          backgroundColor: C.surface, borderRadius: 24,
+          borderWidth: 1, borderColor: C.border,
+          padding: 20, gap: 16,
         }}>
-          <View style={{ position: 'absolute', top: -40, right: -40, width: 130, height: 130, borderRadius: 65, backgroundColor: 'rgba(16,185,129,0.3)' }} />
-          <Text style={{ color: '#6EE7B7', fontSize: 12, fontWeight: '700', letterSpacing: 1, marginBottom: 12 }}>
-            CARTEIRA
-          </Text>
-
-          <Text style={{ color: '#fff', fontSize: 11, color: '#A7F3D0' }}>Saldo disponível</Text>
-          <Text style={{ color: '#fff', fontSize: 32, fontWeight: '900', marginTop: 4 }}>
-            {formatBRL(totalRepasse)}
-          </Text>
-
-          {pendingEarnings > 0 && (
-            <View style={{
-              backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 10,
-              paddingHorizontal: 12, paddingVertical: 8, marginTop: 12,
-              flexDirection: 'row', alignItems: 'center', gap: 8,
-            }}>
-              <Text style={{ fontSize: 14 }}>⏳</Text>
-              <View>
-                <Text style={{ color: '#FDE68A', fontSize: 11, fontWeight: '700' }}>A RECEBER</Text>
-                <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>{formatBRL(pendingEarnings)}</Text>
-              </View>
-            </View>
-          )}
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16 }}>
-            <Text style={{ fontSize: 16 }}>📅</Text>
+          {/* Total + trend */}
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <View>
-              <Text style={{ color: '#A7F3D0', fontSize: 11 }}>Próximo pagamento</Text>
-              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>{nextTuesdayStr()}</Text>
+              <Text style={{ color: C.muted, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                Ganhos — {PERIODS.find((p) => p.key === period)?.label}
+              </Text>
+              <Text style={{ color: '#fff', fontSize: 32, fontWeight: '900', marginTop: 6 }}>
+                {formatBRL(displayTotal)}
+              </Text>
             </View>
+            <View style={{
+              flexDirection: 'row', alignItems: 'center', gap: 4,
+              backgroundColor: 'rgba(5,150,105,0.15)', borderRadius: 10,
+              paddingHorizontal: 10, paddingVertical: 5,
+              borderWidth: 1, borderColor: 'rgba(5,150,105,0.25)',
+            }}>
+              <Ionicons name="trending-up-outline" size={14} color={C.primary} />
+              <Text style={{ color: C.primary, fontSize: 12, fontWeight: '800' }}>+18%</Text>
+            </View>
+          </View>
+
+          {/* Breakdown grid */}
+          <View style={{
+            flexDirection: 'row', gap: 1,
+            backgroundColor: C.border, borderRadius: 16, overflow: 'hidden',
+          }}>
+            {[
+              { label: 'Coletas', value: coletas,  icon: 'bag-outline' as const },
+              { label: 'Express', value: express,  icon: 'flash-outline' as const },
+              { label: 'Bônus',   value: bonus,    icon: 'star-outline' as const },
+            ].map((item, i) => (
+              <View key={item.label} style={{
+                flex: 1, alignItems: 'center', paddingVertical: 14,
+                backgroundColor: C.dark,
+                borderLeftWidth: i > 0 ? 1 : 0,
+                borderLeftColor: C.border,
+              }}>
+                <Ionicons name={item.icon} size={16} color={C.muted} style={{ marginBottom: 4 }} />
+                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>
+                  {formatBRL(item.value)}
+                </Text>
+                <Text style={{ color: C.muted, fontSize: 9, marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  {item.label}
+                </Text>
+              </View>
+            ))}
           </View>
         </View>
 
-        {/* Breakdown */}
+        {/* ── Weekly bar chart ────────────────────────────────────────── */}
         <View style={{
-          backgroundColor: '#fff', borderRadius: 20, padding: 20,
-          borderWidth: 1, borderColor: '#E2E8F0',
+          backgroundColor: C.surface, borderRadius: 24,
+          borderWidth: 1, borderColor: C.border,
+          padding: 20,
         }}>
-          <Text style={{ fontSize: 15, fontWeight: '800', color: '#111827', marginBottom: 4 }}>
-            Breakdown de ganhos
+          <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800', marginBottom: 4 }}>Desempenho Semanal</Text>
+          <Text style={{ color: C.muted, fontSize: 11, marginBottom: 16 }}>Últimos 7 dias</Text>
+          <WeekBars percents={barPercents} labels={barLabels} highlightIdx={todayIdx} />
+        </View>
+
+        {/* ── Recent activity ─────────────────────────────────────────── */}
+        <View style={{ gap: 12 }}>
+          <Text style={{ color: '#9CA3AF', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 }}>
+            Atividade Recente
           </Text>
-          <Text style={{ fontSize: 12, color: '#64748B', marginBottom: 16 }}>
-            Distribuição baseada no seu histórico
-          </Text>
-          <BreakdownBar segments={[
-            { label: 'Você',  pct: pctVoce,  color: '#059669' },
-            { label: 'FW',    pct: pctFW,    color: '#1D4ED8' },
-            { label: 'Outros', pct: pctOther, color: '#E5E7EB' },
-          ]} />
+          {ACTIVITY.map((item, i) => (
+            <View
+              key={i}
+              style={{
+                backgroundColor: C.surface, borderRadius: 18,
+                borderWidth: 1, borderColor: C.border,
+                padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14,
+              }}
+            >
+              <View style={{
+                width: 44, height: 44, borderRadius: 14,
+                backgroundColor: `${item.color}18`,
+                alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Ionicons name={item.icon} size={22} color={item.color} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#E5E7EB', fontSize: 13, fontWeight: '700' }}>{item.label}</Text>
+                <Text style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>{item.sub}</Text>
+              </View>
+              <Text style={{
+                fontSize: 14, fontWeight: '800',
+                color: item.amount < 0 ? '#EF4444' : C.primary,
+              }}>
+                {item.amount < 0 ? '−' : '+'}
+                {formatBRL(Math.abs(item.amount))}
+              </Text>
+            </View>
+          ))}
         </View>
       </ScrollView>
+
+      {/* ── Floating bottom card ─────────────────────────────────────────── */}
+      <View style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        backgroundColor: C.surface,
+        borderTopWidth: 1, borderTopColor: C.border,
+        paddingHorizontal: 20, paddingTop: 16,
+        paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+      }}>
+        <View>
+          <Text style={{ color: C.muted, fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+            Saldo disponível
+          </Text>
+          <Text style={{ color: '#fff', fontSize: 22, fontWeight: '900', marginTop: 2 }}>R$ 450,20</Text>
+        </View>
+        <TouchableOpacity
+          onPress={() => Alert.alert('Saque PIX', 'Solicitação de saque enviada.')}
+          style={{
+            backgroundColor: C.primary, borderRadius: 16,
+            paddingVertical: 14, paddingHorizontal: 24,
+            flexDirection: 'row', alignItems: 'center', gap: 8,
+            shadowColor: C.primary, shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.3, shadowRadius: 12, elevation: 5,
+          }}
+        >
+          <Ionicons name="arrow-up-outline" size={18} color="#fff" />
+          <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>Sacar para PIX</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   )
 }

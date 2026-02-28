@@ -1,11 +1,15 @@
 import { Tabs } from 'expo-router'
-import { Text } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 
-function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
+type IoniconName = React.ComponentProps<typeof Ionicons>['name']
+
+function TabIcon({ name, focused, color }: { name: IoniconName; focused: boolean; color: string }) {
   return (
-    <Text style={{ fontSize: focused ? 24 : 20, opacity: focused ? 1 : 0.55 }}>
-      {emoji}
-    </Text>
+    <Ionicons
+      name={name}
+      size={focused ? 24 : 22}
+      color={color}
+    />
   )
 }
 
@@ -14,9 +18,10 @@ export default function TransportadoraLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#7C3AED',
+        tabBarActiveTintColor: '#089161',
         tabBarInactiveTintColor: '#9CA3AF',
         tabBarStyle: {
+          backgroundColor: '#ffffff',
           borderTopColor: '#F3F4F6',
           paddingBottom: 8,
           paddingTop: 4,
@@ -29,28 +34,36 @@ export default function TransportadoraLayout() {
         name="home"
         options={{
           title: 'Home',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon name={focused ? 'home' : 'home-outline'} focused={focused} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="despesas"
         options={{
           title: 'Despesas',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="💳" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon name={focused ? 'bar-chart' : 'bar-chart-outline'} focused={focused} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="historico"
         options={{
           title: 'Histórico',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="📋" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon name={focused ? 'time' : 'time-outline'} focused={focused} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="menu"
         options={{
           title: 'Menu',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="⚙️" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon name={focused ? 'person' : 'person-outline'} focused={focused} color={color} />
+          ),
         }}
       />
     </Tabs>
