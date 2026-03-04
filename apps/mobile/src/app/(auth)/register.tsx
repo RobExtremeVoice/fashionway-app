@@ -8,9 +8,12 @@ import type { Role } from '@fashionway/shared'
 import { Button } from '../../components/ui/Button'
 
 const PRIMARY = '#059669'
-const BG_LIGHT = '#F5F8F7'
-const CARD_BORDER = '#E2E8F0'
-const TEXT_MUTED = '#64748B'
+const BG_DARK = '#07152B'
+const SURFACE_DARK = '#1E2D47'
+const CARD_BORDER = '#2F4565'
+const INPUT_BG = '#0A1A33'
+const INPUT_BORDER = '#274061'
+const TEXT_MUTED = '#7E93B3'
 
 const ROLES: { label: string; value: Role; icon: string; desc: string }[] = [
   { label: 'Loja', value: 'LOJA', icon: '🏬', desc: 'Envie produtos com agilidade' },
@@ -81,9 +84,9 @@ export default function RegisterScreen() {
   const inputShell = (hasError?: boolean, focused?: boolean) => ({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: INPUT_BG,
     borderWidth: focused ? 2 : 1.5,
-    borderColor: hasError ? '#EF4444' : focused ? PRIMARY : CARD_BORDER,
+    borderColor: hasError ? '#EF4444' : focused ? PRIMARY : INPUT_BORDER,
     borderRadius: 12,
     paddingHorizontal: 16,
     minHeight: 56,
@@ -92,15 +95,15 @@ export default function RegisterScreen() {
   const [focusedField, setFocusedField] = useState<string | null>(null)
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: BG_LIGHT }} keyboardShouldPersistTaps="handled">
-      <StatusBar barStyle="dark-content" backgroundColor={BG_LIGHT} />
+    <ScrollView style={{ flex: 1, backgroundColor: BG_DARK }} keyboardShouldPersistTaps="handled">
+      <StatusBar barStyle="light-content" backgroundColor={BG_DARK} />
       <View style={{ maxWidth: 420, width: '100%', alignSelf: 'center', minHeight: '100%', paddingBottom: 36 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 26, paddingBottom: 24 }}>
           <TouchableOpacity
             onPress={handleBack}
             style={{ width: 40, height: 40, borderRadius: 999, alignItems: 'center', justifyContent: 'center' }}
           >
-            <Text style={{ color: '#64748B', fontSize: 22, fontWeight: '600' }}>←</Text>
+            <Text style={{ color: '#8EA3C4', fontSize: 22, fontWeight: '600' }}>←</Text>
           </TouchableOpacity>
           <Text
             style={{
@@ -132,17 +135,17 @@ export default function RegisterScreen() {
                     padding: 14,
                     borderWidth: 2,
                     borderColor: active ? PRIMARY : CARD_BORDER,
-                    backgroundColor: active ? PRIMARY : '#FFFFFF',
+                    backgroundColor: active ? PRIMARY : SURFACE_DARK,
                     shadowColor: active ? PRIMARY : '#000000',
-                    shadowOpacity: active ? 0.18 : 0.04,
-                    shadowRadius: active ? 8 : 3,
+                    shadowOpacity: active ? 0.2 : 0,
+                    shadowRadius: active ? 10 : 0,
                     shadowOffset: { width: 0, height: 4 },
                     elevation: active ? 3 : 0,
                   }}
                 >
                   <Text style={{ fontSize: 27, marginBottom: 8 }}>{r.icon}</Text>
-                  <Text style={{ fontWeight: '800', fontSize: 15, color: active ? '#FFFFFF' : '#0F172A' }}>{r.label}</Text>
-                  <Text style={{ fontSize: 12, marginTop: 4, color: active ? '#D1FAE5' : TEXT_MUTED, lineHeight: 16 }}>
+                  <Text style={{ fontWeight: '800', fontSize: 15, color: active ? '#FFFFFF' : '#F1F5F9' }}>{r.label}</Text>
+                  <Text style={{ fontSize: 12, marginTop: 4, color: active ? '#CFFCE9' : '#A6B7D1', lineHeight: 16 }}>
                     {r.desc}
                   </Text>
                 </TouchableOpacity>
@@ -164,9 +167,9 @@ export default function RegisterScreen() {
                 <View style={inputShell(Boolean(errors[f.key as keyof typeof errors]), focusedField === f.key)}>
                   <Text style={{ fontSize: 18, marginRight: 10 }}>{f.icon}</Text>
                   <TextInput
-                    style={{ flex: 1, fontSize: 16, color: '#0F172A', paddingVertical: 15 }}
+                    style={{ flex: 1, fontSize: 16, color: '#D7E3F6', paddingVertical: 15 }}
                     placeholder={f.ph}
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor="#8EA3C4"
                     value={f.value}
                     onFocus={() => setFocusedField(f.key)}
                     onBlur={() => setFocusedField((prev) => (prev === f.key ? null : prev))}
@@ -194,9 +197,9 @@ export default function RegisterScreen() {
               <View style={inputShell(Boolean(errors.password), focusedField === 'password')}>
                 <Text style={{ fontSize: 18, marginRight: 10 }}>🔒</Text>
                 <TextInput
-                  style={{ flex: 1, fontSize: 16, color: '#0F172A', paddingVertical: 15 }}
+                  style={{ flex: 1, fontSize: 16, color: '#D7E3F6', paddingVertical: 15 }}
                   placeholder="Mínimo 6 caracteres"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor="#8EA3C4"
                   value={password}
                   onFocus={() => setFocusedField('password')}
                   onBlur={() => setFocusedField((prev) => (prev === 'password' ? null : prev))}
@@ -219,10 +222,10 @@ export default function RegisterScreen() {
               loading={loading}
               label="Criar conta 🚀"
               accessibilityLabel="Criar conta"
-              style={{ backgroundColor: PRIMARY, borderColor: PRIMARY, borderRadius: 12 }}
+              style={{ backgroundColor: PRIMARY, borderColor: PRIMARY, borderRadius: 14, shadowColor: PRIMARY, shadowOpacity: 0.28, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } }}
             />
             <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
-              <Text style={{ color: TEXT_MUTED }}>Já tem conta? </Text>
+              <Text style={{ color: '#9CB0CC' }}>Já tem conta? </Text>
               <TouchableOpacity onPress={handleBack}>
                 <Text style={{ color: PRIMARY, fontWeight: '800' }}>Entrar</Text>
               </TouchableOpacity>
