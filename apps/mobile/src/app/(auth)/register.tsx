@@ -30,6 +30,14 @@ export default function RegisterScreen() {
   const [errors, setErrors] = useState<{ name?: string; email?: string; phone?: string; password?: string }>({})
   const register = useAuthStore((s) => s.register)
 
+  function handleBack() {
+    if (router.canGoBack()) {
+      router.back()
+      return
+    }
+    router.replace('/(auth)/login')
+  }
+
   function formatPhoneBR(value: string) {
     const digits = value.replace(/\D/g, '').slice(0, 11)
     if (digits.length <= 2) return digits
@@ -89,7 +97,7 @@ export default function RegisterScreen() {
       <View style={{ maxWidth: 420, width: '100%', alignSelf: 'center', minHeight: '100%', paddingBottom: 36 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 26, paddingBottom: 24 }}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={handleBack}
             style={{ width: 40, height: 40, borderRadius: 999, alignItems: 'center', justifyContent: 'center' }}
           >
             <Text style={{ color: '#64748B', fontSize: 22, fontWeight: '600' }}>←</Text>
@@ -215,7 +223,7 @@ export default function RegisterScreen() {
             />
             <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
               <Text style={{ color: TEXT_MUTED }}>Já tem conta? </Text>
-              <TouchableOpacity onPress={() => router.back()}>
+              <TouchableOpacity onPress={handleBack}>
                 <Text style={{ color: PRIMARY, fontWeight: '800' }}>Entrar</Text>
               </TouchableOpacity>
             </View>
